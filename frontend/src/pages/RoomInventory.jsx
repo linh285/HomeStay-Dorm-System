@@ -160,8 +160,23 @@ const RoomInventory = () => {
     setLoading(true);
     try {
       const res = await roomService.getRooms(params);
-      // API returns array or { data: [...] }
-      const list = Array.isArray(res) ? res : (res?.data ?? res?.rooms ?? []);
+      // api.js interceptor returns response.data directly
+      // so res = { success, message, data: [...] }
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      // Backend returns PascalCase; normalize to camelCase for render
+      const list = raw.map((r) => ({
+        maPhong:      r.MaPhong     ?? r.maPhong,
+        khu:          r.KhuVuc      ?? r.khu,
+        tang:         r.Tang        ?? r.tang,
+        loaiPhong:    r.LoaiPhong   ?? r.loaiPhong ?? '—',
+        sucChua:      r.SucChua     ?? r.sucChua,
+        giaThue:      r.GiaThue     ?? r.giaThue,
+        trangThai:    r.TinhTrang   ?? r.trangThai,
+        ghiChu:       r.GhiChu      ?? r.ghiChu ?? '',
+        soGiuongTrong: (r.giuongs ?? []).filter((g) =>
+          (g.TinhTrang ?? g.tinhTrang) === 'AVAILABLE'
+        ).length,
+      }));
       setRooms(list);
     } catch (err) {
       toast.error('Không thể tải danh sách phòng!');
@@ -178,10 +193,10 @@ const RoomInventory = () => {
   /* ── Filter handler ── */
   const handleFilter = () => {
     const params = {};
-    if (filterKhu) params.khu = filterKhu;
-    if (filterTang) params.tang = filterTang;
-    if (filterTrangThai) params.trangThai = filterTrangThai;
-    if (filterSearch) params.search = filterSearch;
+    if (filterKhu)       params.KhuVuc    = filterKhu;
+    if (filterTang)      params.Tang      = filterTang;
+    if (filterTrangThai) params.TinhTrang = filterTrangThai;
+    if (filterSearch)    params.search    = filterSearch;
     fetchRooms(params);
   };
 
@@ -243,20 +258,19 @@ const RoomInventory = () => {
   /* ── Save ── */
   const handleSave = async () => {
     const errors = validate();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     setSaving(true);
     try {
+      // Backend expects PascalCase
       const payload = {
-        ...form,
-        tang: Number(form.tang),
-        sucChua: Number(form.sucChua),
-        giaThue: Number(form.giaThue),
+        MaPhong:   form.maPhong,
+        KhuVuc:    form.khu,
+        Tang:      Number(form.tang),
+        SucChua:   Number(form.sucChua),
+        GiaThue:   Number(form.giaThue),
+        TinhTrang: form.trangThai,
+        GhiChu:    form.ghiChu,
       };
-
       if (editingRoom) {
         await roomService.updateRoom(editingRoom.maPhong, payload);
         toast.success('Cập nhật phòng thành công!');
@@ -268,7 +282,6 @@ const RoomInventory = () => {
       fetchRooms();
     } catch (err) {
       toast.error(err?.message || 'Có lỗi xảy ra, vui lòng thử lại!');
-      console.error(err);
     } finally {
       setSaving(false);
     }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FiUser, FiFileText, FiAlertTriangle, FiCheckCircle,
-  FiXCircle, FiInfo, FiCalendar, FiHome, FiEye,
+  FiXCircle, FiInfo, FiCalendar, FiHome, FiEye, FiArrowLeft,
 } from 'react-icons/fi';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -137,17 +137,17 @@ const ContractCreation = () => {
     setLoading(true);
     try {
       await contractService.createContract({
-        maHopDong: MOCK_CONTRACT_DATA.maHopDong,
+        // maPhong is null here because ContractCreation uses mock data;
+        // in production this would come from the booking flow with a real maPhong
+        maPhong: null,
         ngayBatDau: form.ngayBatDau,
         ngayKetThuc: form.ngayKetThuc,
-        khachThue: MOCK_CONTRACT_DATA.khachThue,
-        phong: MOCK_CONTRACT_DATA.phong,
         giaThue: MOCK_CONTRACT_DATA.giaThue,
-        soNguoiThue: Number(form.soNguoiThue),
-        kyThanhToan: form.kyThanhToan,
+        noiQuy: DIEU_KHOAN_TEXT,
       });
       setInfoModalOpen(true);
     } catch (err) {
+      // Interceptor rejects with the body: { success: false, message }
       toast.error(err?.message || 'Tạo hợp đồng thất bại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
@@ -174,6 +174,21 @@ const ContractCreation = () => {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={s.page}>
+      {/* Back button */}
+      <div style={{ marginBottom: 20 }}>
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 14px', border: '1px solid #dee2e6', borderRadius: 8,
+            backgroundColor: '#fff', color: '#495057', fontSize: 14,
+            fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          <FiArrowLeft size={15} /> Quay lại
+        </button>
+      </div>
+
       {/* ════ TOP SECTION: Screening ════════════════════════════════════════ */}
       <div style={s.card}>
         {/* Card header */}

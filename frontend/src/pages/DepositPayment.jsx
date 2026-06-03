@@ -30,9 +30,12 @@ export default function DepositPayment() {
     setLoading(true);
     try {
       const res = await getDeposits(filters);
-      setDeposits(res.data?.deposits || res.data || []);
-    } catch {
-      toast.error('Không thể tải danh sách đặt cọc');
+      // api.js interceptor returns response.data directly,
+      // so res = { success, message, data: [...] }
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setDeposits(list);
+    } catch (err) {
+      toast.error(err?.message || 'Không thể tải danh sách đặt cọc');
     } finally {
       setLoading(false);
     }

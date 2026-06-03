@@ -95,7 +95,7 @@ const roleLabels = {
 const Sidebar = ({ onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout: contextLogout } = useAuth();
 
   const userRole = user?.chucVu || '';
   const userName = user?.hoTen || user?.tenDangNhap || 'Người dùng';
@@ -112,9 +112,11 @@ const Sidebar = ({ onLogout }) => {
   );
 
   const handleLogout = () => {
-    if (typeof onLogout === 'function') {
-      onLogout();
-    }
+    // Always use context logout (clears token + user from localStorage)
+    contextLogout();
+    // Also call the optional prop callback if provided (e.g. BookingWorkspace passes logout)
+    if (typeof onLogout === 'function') onLogout();
+    navigate('/login');
   };
 
   return (

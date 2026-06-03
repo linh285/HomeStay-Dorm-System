@@ -206,7 +206,6 @@ const BookingWorkspace = () => {
     toast.success('Khách hàng đủ điều kiện đăng ký thuê.');
   };
 
-  // ── Find rooms
   const handleFindRooms = useCallback(async () => {
     setRoomsLoading(true);
     setRoomsSearched(false);
@@ -214,12 +213,24 @@ const BookingWorkspace = () => {
     setScheduleSaved(false);
     setKhachDaDongY(false);
     try {
+      // Map frontend fields → backend query params
       const params = {};
-      if (form.loaiPhongMongMuon) params.loaiPhong = form.loaiPhongMongMuon;
-      if (form.ngayDuKienVaoO) params.ngayVaoO = form.ngayDuKienVaoO;
-      if (form.soNguoiThue) params.soNguoi = form.soNguoiThue;
-      const data = await roomService.getAvailableRooms(params);
-      const list = Array.isArray(data) ? data : data?.data || data?.rooms || [];
+      if (form.soNguoiThue) params.SucChua = form.soNguoiThue;
+      const res = await roomService.getAvailableRooms(params);
+      // axios wraps body in .data; backend returns { success, data: [...] }
+      const raw = res?.data?.data ?? res?.data ?? [];
+      // Normalize backend field names (PascalCase) to camelCase for RoomCard
+      const list = (Array.isArray(raw) ? raw : []).map((r) => ({
+        maPhong: r.MaPhong ?? r.maPhong,
+        loaiPhong: r.LoaiPhong ?? r.loaiPhong ?? '—',
+        khu: r.KhuVuc ?? r.khu,
+        tang: r.Tang ?? r.tang,
+        soGiuong: r.SucChua ?? r.soGiuong,
+        giaThue: r.GiaThue ?? r.giaThue,
+        giaThuePhanThang: r.GiaThue ?? r.giaThuePhanThang,
+        trangThai: r.TinhTrang ?? r.trangThai,
+        giuongs: r.giuongs,
+      }));
       setRooms(list);
       if (list.length === 0) {
         toast('Không tìm thấy phòng phù hợp với tiêu chí đã chọn.', { icon: '🔍' });

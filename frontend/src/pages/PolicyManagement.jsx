@@ -31,7 +31,12 @@ export default function PolicyManagement() {
     setLoading(true);
     try {
       const res = await getPolicies(filters.trangThai === 'ALL' ? {} : { trangThai: filters.trangThai });
-      setPolicies(res.data?.policies || res.data || []);
+      // api.js interceptor returns response.data → res = { success, data: { policies:[...], total } }
+      const list = Array.isArray(res?.data?.policies) ? res.data.policies
+                 : Array.isArray(res?.data)           ? res.data
+                 : Array.isArray(res)                 ? res
+                 : [];
+      setPolicies(list);
     } catch { toast.error('Không thể tải quy định'); }
     finally { setLoading(false); }
   };
