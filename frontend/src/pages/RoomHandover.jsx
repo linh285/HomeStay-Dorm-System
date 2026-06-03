@@ -1,0 +1,241 @@
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { FiCheck, FiAlertTriangle, FiPlus } from 'react-icons/fi';
+import toast from 'react-hot-toast';
+import Sidebar from '../components/layout/Sidebar';
+import Topbar from '../components/layout/Topbar';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
+import { getHandover, createHandover, confirmHandover, updateAssetCheck } from '../services/handoverService';
+import { getContracts } from '../services/contractService';
+import { formatDate, formatCurrency } from '../utils/formatters';
+
+export default function RoomHandover() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const maHopDong = location.state?.maHopDong;
+  const [contracts, setContracts] = useState([]);
+  const [selectedContract, setSelectedContract] = useState(null);
+  const [bangGiao, setBangGiao] = useState(null);
+  const [loadingBG, setLoadingBG] = useState(false);
+  const [assets, setAssets] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    getContracts({ tinhTrang: 'ACTIVE' }).then(r => {
+      const list = r.data?.contracts || [];
+      setContracts(list);
+      if (maHopDong) {
+        const found = list.find(c => c.MaHopDong === maHopDong);
+        if (found) setSelectedContract(found);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedContract) return;
+    setLoadingBG(true);
+    getHandover(selectedContract.MaHopDong).then(r => {
+      setBangGiao(r.data);
+      setAssets(r.data?.taiSans?.map(ts => ({
+        ...ts,
+        soLuong: ts.BangGiaoTaiSan?.SoLuong || 1,
+        tinhTrang: ts.BangGiaoTaiSan?.TinhTrangLucGiao || 'Tốt',
+        daKiemTra: ts.BangGiaoTaiSan?.DaKiemTra || false,
+      })) || []);
+    }).catch(() => setBangGiao(null))
+      .finally(() => setLoadingBG(false));
+  }, [selectedContract]);
+
+  const handleCreateBangGiao = async () => {
+    setCreating(true);
+    try {
+      const res = await createHandover(selectedContract.MaHopDong);
+      const bg = res.data;
+      setBangGiao(bg);
+      setAssets(bg?.taiSans?.map(ts => ({ ...ts, soLuong: ts.BangGiaoTaiSan?.SoLuong || 1, tinhTrang: ts.BangGiaoTaiSan?.TinhTrangLucGiao || 'Tốt', daKiemTra: false })) || []);
+      toast.success('Tạo biên bản bàn giao thành công');
+    } catch (err) { toast.error(err?.message || 'Tạo biên bản thất bại'); }
+    finally { setCreating(false); }
+  };
+
+  const handleAssetChange = async (index, field, value) => {
+    const updated = assets.map((a, i) => i === index ? { ...a, [field]: value } : a);
+    setAssets(updated);
+    if (bangGiao && field === 'daKiemTra') {
+      const asset = updated[index];
+      try {
+        await updateAssetCheck(bangGiao.MaBanGiao, asset.MaTaiSan, {
+          daKiemTra: asset.daKiemTra,
+          tinhTrangLucGiao: asset.tinhTrang,
+        });
+      } catch { toast.error('Cập nhật tài sản thất bại'); }
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!bangGiao) return;
+    const unchecked = assets.filter(a => !a.daKiemTra);
+    if (unchecked.length > 0) { toast.error(`Còn ${unchecked.length} tài sản chưa kiểm tra`); return; }
+    setSubmitting(true);
+    try {
+      await confirmHandover(bangGiao.MaBanGiao);
+      toast.success('✅ Xác nhận bàn giao thành công! Phòng đã chuyển sang OCCUPIED.');
+      navigate('/dashboard');
+    } catch (err) { toast.error(err?.message || 'Xác nhận thất bại'); }
+    finally { setSubmitting(false); }
+  };
+
+  const checkedCount = assets.filter(a => a.daKiemTra).length;
+  const allChecked = assets.length > 0 && checkedCount === assets.length;
+  const isContractActive = selectedContract?.TinhTrang === 'ACTIVE';
+
+  return (
+    <div className="app-layout">
+      <Sidebar />
+      <div className="app-content">
+        <Topbar title="Bàn giao phòng" />
+        <main className="main-content">
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Bàn giao phòng</h1>
+
+          {/* Select contract */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Chọn hợp đồng cần bàn giao</label>
+              <select className="form-control" value={selectedContract?.MaHopDong || ''}
+                onChange={e => { const c = contracts.find(c => c.MaHopDong === e.target.value); setSelectedContract(c || null); }}>
+                <option value="">-- Chọn hợp đồng --</option>
+                {contracts.map(c => (
+                  <option key={c.MaHopDong} value={c.MaHopDong}>
+                    {c.MaHopDong} · Phòng {c.phong?.MaPhong} · {c.nhom?.daiDien?.HoTen}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {selectedContract && (
+            <div style={{ display: 'grid', gridTemplateColumns: '35fr 65fr', gap: 20 }}>
+              {/* LEFT */}
+              <div>
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>Thông tin hợp đồng</h3>
+                  <div style={{ fontSize: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {[
+                      ['Mã HD', selectedContract.MaHopDong],
+                      ['Khách thuê', selectedContract.nhom?.daiDien?.HoTen],
+                      ['Phòng', selectedContract.phong?.MaPhong],
+                      ['Ngày bắt đầu', formatDate(selectedContract.NgayBatDau)],
+                      ['Giá thuê', formatCurrency(selectedContract.GiaThue)],
+                    ].map(([l, v]) => (
+                      <div key={l} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#6C757D' }}>{l}:</span>
+                        <strong>{v || '—'}</strong>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#6C757D' }}>Trạng thái HĐ:</span>
+                      <Badge variant={isContractActive ? 'available' : 'warning'}>
+                        {isContractActive ? 'Đang hiệu lực' : 'Chờ thanh toán kỳ đầu'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {!isContractActive && (
+                    <div style={{ background: '#FFF2F2', border: '1px solid #DC3545', borderRadius: 8, padding: 12, marginTop: 12, fontSize: 13, color: '#DC3545' }}>
+                      <FiAlertTriangle style={{ marginRight: 6 }} />
+                      Hợp đồng chưa được thanh toán tiền thuê kỳ đầu. Không thể bàn giao phòng.
+                    </div>
+                  )}
+                </div>
+
+                {bangGiao && (
+                  <div className="card" style={{ marginBottom: 16 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 10 }}>Trạng thái bàn giao</h3>
+                    <Badge variant={bangGiao.TinhTrang === 'COMPLETED' ? 'available' : 'warning'}>
+                      {bangGiao.TinhTrang === 'COMPLETED' ? '✅ Đã bàn giao' : '⏳ Đang chờ xác nhận'}
+                    </Badge>
+                    <div style={{ marginTop: 10, fontSize: 13, color: '#6C757D' }}>
+                      Đã kiểm tra: {checkedCount}/{assets.length} tài sản
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {!bangGiao && isContractActive && (
+                    <Button variant="outline" fullWidth loading={creating} onClick={handleCreateBangGiao}>
+                      <FiPlus size={16} style={{ marginRight: 6 }} /> Tạo biên bản bàn giao
+                    </Button>
+                  )}
+                  <Button variant="primary" fullWidth loading={submitting}
+                    disabled={!bangGiao || !allChecked || !isContractActive}
+                    onClick={handleConfirm}
+                    title={!allChecked ? 'Cần hoàn tất kiểm tra tài sản' : ''}>
+                    <FiCheck size={16} style={{ marginRight: 6 }} /> Xác nhận bàn giao
+                  </Button>
+                  <button className="btn btn-outline" disabled style={{ fontSize: 13 }}>📥 Tải hợp đồng</button>
+                </div>
+              </div>
+
+              {/* RIGHT: Asset checklist */}
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Biên bản bàn giao tài sản</h3>
+                  <span style={{ fontSize: 13, color: '#6C757D' }}>Đã kiểm tra: {checkedCount}/{assets.length}</span>
+                </div>
+
+                {loadingBG ? (
+                  <div className="skeleton" style={{ height: 200 }} />
+                ) : assets.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: '#6C757D' }}>
+                    {bangGiao ? 'Không có tài sản' : 'Chưa có biên bản. Nhấn "Tạo biên bản" để bắt đầu.'}
+                  </div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '40%' }}>Tên tài sản</th>
+                        <th style={{ width: '15%' }}>Số lượng</th>
+                        <th style={{ width: '25%' }}>Tình trạng</th>
+                        <th style={{ width: '20%', textAlign: 'center' }}>Đã kiểm tra</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assets.map((asset, i) => (
+                        <tr key={asset.MaTaiSan} style={{ background: asset.daKiemTra ? '#F0FFF4' : 'white' }}>
+                          <td>{asset.TenTaiSan}</td>
+                          <td>{asset.soLuong}</td>
+                          <td>
+                            <select className="form-control" style={{ padding: '4px 8px', fontSize: 13 }}
+                              value={asset.tinhTrang}
+                              onChange={e => handleAssetChange(i, 'tinhTrang', e.target.value)}>
+                              <option value="Mới">Mới</option>
+                              <option value="Tốt">Tốt</option>
+                              <option value="Hư hỏng">Hư hỏng</option>
+                            </select>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <input type="checkbox" checked={asset.daKiemTra}
+                              onChange={e => handleAssetChange(i, 'daKiemTra', e.target.checked)}
+                              style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#198754' }} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                {allChecked && (
+                  <div style={{ background: '#F0FFF4', border: '1px solid #198754', borderRadius: 8, padding: 12, marginTop: 12, textAlign: 'center', color: '#198754', fontSize: 14, fontWeight: 600 }}>
+                    ✅ Tất cả tài sản đã được kiểm tra. Sẵn sàng xác nhận bàn giao!
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
