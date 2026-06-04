@@ -136,15 +136,19 @@ Frontend sẽ chạy tại: **http://localhost:5173**
 docker-compose down -v
 docker-compose up -d
 
-## Quy trình nghiệp vụ chính
-Đăng ký thuê → Chọn phòng → Đặt lịch xem
-→ Tạo yêu cầu cọc (24h) → Xác nhận cọc → Phòng RESERVED
-→ Rà soát khách → Lập hợp đồng (PENDING_FIRST_PAYMENT)
-→ Kế toán thu tiền kỳ đầu → Hợp đồng ACTIVE
-→ Bàn giao phòng + tài sản → Phòng OCCUPIED
-→ [Sử dụng dịch vụ]
-→ Yêu cầu trả phòng → Kiểm tra, khấu trừ → Quyết toán
-→ Hoàn cọc / thu thêm → Lập hóa đơn → Phòng AVAILABLE
+## 🔄 Quy trình nghiệp vụ chính (tóm tắt)
+
+1. **Đăng ký & đặt cọc**  
+   Đăng ký thuê → Chọn phòng → Đặt lịch xem → Tạo yêu cầu cọc (24h) → Xác nhận cọc → Phòng `RESERVED`
+
+2. **Ký hợp đồng & thanh toán kỳ đầu**  
+   Rà soát khách → Lập hợp đồng (`PENDING_FIRST_PAYMENT`) → Kế toán thu tiền kỳ đầu → Hợp đồng `ACTIVE`
+
+3. **Bàn giao & sử dụng**  
+   Bàn giao phòng + tài sản → Phòng `OCCUPIED` → [Sử dụng dịch vụ]
+
+4. **Trả phòng & quyết toán**  
+   Yêu cầu trả phòng → Kiểm tra, khấu trừ → Quyết toán hoàn cọc / thu thêm → Lập hóa đơn → Phòng `AVAILABLE`
 
 ## Quy tắc tính tiền cọc & hoàn cọc
 Loại	                Công thức
