@@ -199,7 +199,6 @@ const getDepositById = async (maCoc) => {
  */
 const expireOverdueDeposits = async () => {
   const now = new Date();
-
   const overdueDeposits = await DatCoc.findAll({
     where: {
       TinhTrang: 'PENDING_PAYMENT',
@@ -217,9 +216,9 @@ const expireOverdueDeposits = async () => {
     try {
       await datCoc.update({ TinhTrang: 'EXPIRED' }, { transaction: t });
 
-      // Reset room to AVAILABLE if it was set to PENDING by this deposit
+      // Reset phòng nếu nó đang ở trạng thái PENDING do cọc này gây ra
       if (datCoc.phong && datCoc.phong.TinhTrang === 'PENDING') {
-        // Check if there's another active deposit for this room
+        // Kiểm tra xem còn cọc nào khác active cho phòng này không
         const otherActive = await DatCoc.count({
           where: {
             MaPhong: datCoc.MaPhong,
@@ -232,17 +231,14 @@ const expireOverdueDeposits = async () => {
           await datCoc.phong.update({ TinhTrang: 'AVAILABLE' }, { transaction: t });
         }
       }
-
-      // Reset bed to AVAILABLE
       if (datCoc.giuong && datCoc.giuong.TinhTrang === 'PENDING') {
         await datCoc.giuong.update({ TinhTrang: 'AVAILABLE' }, { transaction: t });
       }
-
       await t.commit();
       count++;
     } catch (err) {
       await t.rollback();
-      console.error(`[CRON] Failed to expire deposit ${datCoc.MaCoc}:`, err.message);
+      console.error(`[CRON] Lỗi khi hủy cọc ${datCoc.MaCoc}:`, err.message);
     }
   }
   return count;
