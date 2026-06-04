@@ -3,10 +3,10 @@ const depositService = require('../services/depositService');
 
 /**
  * Cron job: chạy mỗi giờ để kiểm tra và hủy các cọc quá hạn.
- * Lịch: 0 * * * * (vào phút 0 của mỗi giờ)
+ * Lịch: * * * * * (vào phút 0 của mỗi phút)
  */
 const startExpireDepositsCron = () => {
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule('* * * * *', async () => {
     console.log(`[CRON] Đang kiểm tra cọc quá hạn lúc: ${new Date().toISOString()}`);
     try {
       const expiredCount = await depositService.expireOverdueDeposits();
