@@ -271,7 +271,7 @@ const BookingWorkspace = () => {
           Email: form.email || null,
         });
         // API trả về { success: true, data: { MaKH, ... } } sau interceptor
-        const maKH = newCustomer?.data?.MaKH || newCustomer?.MaKH;
+        const maKH = newCustomer?.data?.MaKH;
         setKhachHangId(maKH);
         toast.success('Đã lưu thông tin đăng ký thành công!');
       }

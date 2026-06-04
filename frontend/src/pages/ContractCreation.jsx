@@ -159,7 +159,7 @@ const ContractCreation = () => {
         noiQuy: DIEU_KHOAN_TEXT,
         chiTietThue: [],
       });
-      setCreatedContractId(res?.MaHopDong || '');
+      setCreatedContractId(res?.data?.MaHopDong || '');
       // Chỉ mở modal nếu chưa mở (tránh StrictMode gọi hai lần)
       if (!modalOpenedRef.current) {
         modalOpenedRef.current = true;

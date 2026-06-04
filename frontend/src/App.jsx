@@ -1,8 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
+import { AuthProvider } from './contexts/AuthProvider';
 
 // Pages
 import Login from './pages/Login';
@@ -22,17 +22,17 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster position="top-right" toastOptions={{
-          duration: 4000,
-          style: { fontFamily: 'Inter, sans-serif', fontSize: '14px' },
-          success: { iconTheme: { primary: '#198754', secondary: '#fff' } },
-          error: { iconTheme: { primary: '#DC3545', secondary: '#fff' } },
-        }} />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: { fontFamily: 'Inter, sans-serif', fontSize: '14px' },
+            success: { iconTheme: { primary: '#198754', secondary: '#fff' } },
+            error: { iconTheme: { primary: '#DC3545', secondary: '#fff' } },
+          }}
+        />
         <Routes>
-          {/* Public */}
           <Route path="/login" element={<Login />} />
-
-          {/* Protected */}
           <Route element={<PrivateRoute />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -47,8 +47,6 @@ export default function App() {
             <Route path="/invoices/new" element={<InvoiceGenerator />} />
             <Route path="/policies" element={<PolicyManagement />} />
           </Route>
-
-          {/* 404 */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>

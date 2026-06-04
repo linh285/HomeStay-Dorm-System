@@ -26,7 +26,7 @@ export default function CheckoutRequest() {
       const res = await getCheckoutRequests({});
       // Backend trả về { total, checkouts, page, limit }
       // Interceptor đã lấy response.data, nên res = { total, checkouts, page, limit }
-      const checkoutList = Array.isArray(res?.checkouts) ? res.checkouts : [];
+      const checkoutList = Array.isArray(res?.data?.checkouts) ? res.data.checkouts : [];
       setCheckouts(checkoutList);
     } catch (err) {
       console.error('Lỗi khi tải danh sách trả phòng:', err);
@@ -44,7 +44,7 @@ export default function CheckoutRequest() {
     setSearching(true);
     try {
       const res = await getContracts({ search: searchKeyword });
-      const list = res?.contracts || [];
+      const list = res?.data?.contracts || [];
       const active = list.find(c => c.TinhTrang === 'ACTIVE');
       if (active) { setFoundContract(active); toast.success('Tìm thấy hợp đồng!'); }
       else { setFoundContract(null); toast.error('Không tìm thấy hợp đồng đang hoạt động'); }

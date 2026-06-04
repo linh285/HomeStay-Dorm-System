@@ -1,6 +1,6 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
-
-export const AuthContext = createContext(null);
+// src/contexts/AuthProvider.jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { AuthContext } from './AuthContext'; // Import context object
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -8,12 +8,20 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore session from localStorage
     const storedToken = localStorage.getItem('homestay_token');
     const storedUser = localStorage.getItem('homestay_user');
-    if (storedToken && storedUser) {
+    
+    // Chỉ parse dữ liệu khi tồn tại và không phải chuỗi 'undefined'
+    if (storedToken && storedUser && storedUser !== 'undefined') {
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Failed to parse user from localStorage:', error);
+        localStorage.removeItem('homestay_user');
+        localStorage.removeItem('homestay_token');
+      }
     }
     setLoading(false);
   }, []);

@@ -393,9 +393,12 @@ const Login = () => {
         email: formData.email,
         matKhau: formData.password,
       });
+      console.log('🔍 Full response:', response);
+      console.log('🔍 Token:', response.token);
+      console.log('🔍 User:', response.user);
 
       // api interceptor returns response body directly (e.g. { success, data: { token, user } })
-      login(response);
+      login(response.data);
 
       if (formData.rememberMe) {
         localStorage.setItem('homestay_remember', formData.email);

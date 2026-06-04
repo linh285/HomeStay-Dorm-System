@@ -26,9 +26,6 @@ export default function DepositPayment() {
     setLoading(true);
     try {
       const res = await getDeposits({});
-      // Debug: log response
-      console.log('Deposit API response:', res);
-      // Lấy mảng deposits từ res.data hoặc res nếu là mảng trực tiếp
       let list = [];
       if (Array.isArray(res)) {
         list = res;
@@ -39,8 +36,8 @@ export default function DepositPayment() {
       }
       setDeposits(list);
     } catch (err) {
-      console.error('Fetch deposits error:', err);
-      toast.error(err?.message || 'Không thể tải danh sách đặt cọc');
+      console.error(err);
+      toast.error('Không thể tải danh sách đặt cọc');
     } finally {
       setLoading(false);
     }
