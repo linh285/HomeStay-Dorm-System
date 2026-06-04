@@ -6,3 +6,4 @@ export const createContract = (data) => api.post('/contracts', data);
 export const activateContract = (maHopDong) => api.put(`/contracts/${maHopDong}/activate`);
 export const screenMembers = (maHopDong, data) => api.put(`/contracts/${maHopDong}/screen`, data);
 export const findContractBySearch = (keyword) => api.get('/contracts/search', { params: { keyword } });
+export const screenGroupMembers = (maNhom, data) => api.put(`/contracts/nhom/${maNhom}/screen`, data);

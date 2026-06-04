@@ -16,6 +16,7 @@ import * as depositService from '../services/depositService';
 import { useAuth } from '../hooks/useAuth';
 import * as lichXemService from '../services/lichXemService';
 import * as customerService from '../services/customerService';
+import * as groupService from '../services/groupService';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROOM_TYPES = [
@@ -164,7 +165,7 @@ const BookingWorkspace = () => {
 
    // ── Thêm state lưu mã khách hàng sau khi tạo cọc
   const [khachHangId, setKhachHangId] = useState(null);
-
+  const [maNhom, setMaNhom] = useState(null);
   // ── Form helpers
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -173,6 +174,7 @@ const BookingWorkspace = () => {
       [name]: name === 'soNguoiThue' ? Number(value) : value,
     }));
   };
+  
 
   const handleClearForm = () => {
     setForm(INITIAL_FORM);
@@ -259,21 +261,41 @@ const BookingWorkspace = () => {
     try {
       // Tìm kiếm khách hàng theo SĐT
       const searchRes = await customerService.getAllCustomers({ search: form.sdt });
-      const existing = searchRes?.data?.customers?.[0];
-      if (existing) {
-        setKhachHangId(existing.MaKH);
-        toast.success('Đã tìm thấy thông tin khách hàng. Có thể tiếp tục.');
-      } else {
-        // Tạo mới khách hàng
+      let existing = searchRes?.data?.customers?.[0];
+      let maKH = existing?.MaKH;
+
+      if (!maKH) {
         const newCustomer = await customerService.createCustomer({
           HoTen: form.hoTenKhach,
           SDT: form.sdt,
           Email: form.email || null,
         });
-        // API trả về { success: true, data: { MaKH, ... } } sau interceptor
-        const maKH = newCustomer?.data?.MaKH;
-        setKhachHangId(maKH);
-        toast.success('Đã lưu thông tin đăng ký thành công!');
+        maKH = newCustomer?.data?.MaKH;
+      }
+      setKhachHangId(maKH);
+      toast.success('Đã lưu thông tin khách hàng.');
+
+      // Nếu là nhóm và có thành viên, tạo nhóm
+      if (form.loaiKhach === 'NHOM' && form.thanhVien.length > 0) {
+        const members = form.thanhVien.map(m => ({ hoTen: m.hoTen, sdt: m.sdt, email: m.email }));
+        // Thêm người đại diện nếu chưa có trong danh sách
+        const isDaiDienInList = members.some(m => m.sdt === form.sdt);
+        if (!isDaiDienInList) {
+          members.unshift({ hoTen: form.hoTenKhach, sdt: form.sdt, email: form.email });
+        }
+        const groupData = {
+          tenNhom: `Nhóm của ${form.hoTenKhach}`,
+          maDaiDien: maKH,
+          thanhViens: members,
+        };
+        const groupRes = await groupService.createGroup(groupData);
+        const maNhomCreated = groupRes?.data?.MaNhom;
+        if (maNhomCreated) {
+          setMaNhom(maNhomCreated);
+          toast.success('Đã tạo nhóm và thêm thành viên.');
+        }
+      } else {
+        setMaNhom(null);
       }
     } catch (err) {
       console.error(err);
@@ -341,7 +363,7 @@ const BookingWorkspace = () => {
       if (maCoc && maKH) {
         setKhachHangId(maKH); // ← lưu lại để dùng cho lịch xem
         toast.success('Tạo yêu cầu đặt cọc thành công! Chuyển sang lập hợp đồng...');
-        navigate('/contracts', { state: { maCoc } });
+        navigate('/contracts', { state: { maCoc, maNhom } });
       } else {
         toast.error('Không nhận được mã cọc hoặc mã khách hàng, vui lòng thử lại.');
       }

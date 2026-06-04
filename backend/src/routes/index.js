@@ -13,5 +13,6 @@ router.use('/policies', require('./policyRoutes'));
 router.use('/dashboard', require('./dashboardRoutes'));
 router.use('/customers', require('./customerRoutes'));
 router.use('/lich-xem', require('./lichXemRoutes'));
+router.use('/groups', require('./groupRoutes'));
 
 module.exports = router;

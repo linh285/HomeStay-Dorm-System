@@ -11,6 +11,7 @@ import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import * as contractService from '../services/contractService';
 import * as depositService from '../services/depositService';
+import * as groupService from '../services/groupService';
 
 const KY_THANH_TOAN_OPTIONS = [
   { value: 'MONTHLY', label: 'Hàng tháng' },
@@ -46,6 +47,7 @@ const ContractCreation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const maCoc = location.state?.maCoc;
+  const maNhom = location.state?.maNhom;
 
   // State cho dữ liệu từ backend
   const [loadingData, setLoadingData] = useState(true);
@@ -107,6 +109,25 @@ const ContractCreation = () => {
       });
   }, [maCoc, navigate]);
 
+    useEffect(() => {
+    if (maNhom) {
+      groupService.getGroupById(maNhom)
+        .then(res => {
+          const group = res?.data;
+          if (group && group.thanhViens) {
+            const memberList = group.thanhViens.map(m => ({
+              id: m.MaKH,
+              hoTen: m.HoTen,
+              giayTo: m.GiayToTuyThan || '',
+              trangThai: m.ThanhVienNhom?.TrangThai === 'APPROVED' ? 'dat' : (m.ThanhVienNhom?.TrangThai === 'REJECTED' ? 'khong_dat' : null)
+            }));
+            setMembers(memberList);
+          }
+        })
+        .catch(err => console.error(err));
+    }
+  }, [maNhom]);
+
   const allChecked = members.length === 0 || members.every(m => m.trangThai !== null);
   const approvedCount = members.filter(m => m.trangThai === 'dat').length;
   const failedCount = members.filter(m => m.trangThai === 'khong_dat').length;
@@ -123,10 +144,23 @@ const ContractCreation = () => {
     setContractUnlocked(false);
   };
 
-  const handleSaveScreening = () => {
+  const handleSaveScreening = async () => {
     if (!allChecked) {
       toast.error('Vui lòng xét duyệt tất cả thành viên trước khi lưu.');
       return;
+    }
+    // Nếu có nhóm, gửi kết quả lên backend
+    if (maNhom && members.length > 0) {
+      const screeningResults = members.map(m => ({
+        maKH: m.id,
+        trangThai: m.trangThai === 'dat' ? 'APPROVED' : (m.trangThai === 'khong_dat' ? 'REJECTED' : 'PENDING')
+      })).filter(r => r.trangThai !== 'PENDING'); // chỉ gửi những người đã đánh giá
+      try {
+        await contractService.screenGroupMembers(maNhom, { screeningResults });
+      } catch (err) {
+        toast.error('Lỗi khi lưu kết quả rà soát');
+        return;
+      }
     }
     setScreeningSaved(true);
     if (approvedCount > 0 || members.length === 0) {
@@ -153,6 +187,7 @@ const ContractCreation = () => {
     try {
       const res = await contractService.createContract({
         maPhong: phong?.MaPhong,
+        maNhom: maNhom || null,
         ngayBatDau: form.ngayBatDau,
         ngayKetThuc: form.ngayKetThuc,
         giaThue: giaThue,
