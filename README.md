@@ -43,14 +43,15 @@ HomeStay Dorm System/
 
 
 ---
-
+```
 ## 🚀 Hướng dẫn cài đặt
 
 ### Yêu cầu hệ thống
+```bash
 - **Node.js** ≥ 18.x (`node -v`)
 - **Docker** & **Docker Compose** (cài Docker Desktop nếu dùng Windows/Mac)
 - **npm** hoặc **yarn** (đi kèm Node.js)
-
+```
 ### Bước 1: Clone repository
 
 ```bash
@@ -72,19 +73,20 @@ DB_PASSWORD=postgres123
 JWT_SECRET=homestay_dorm_super_secret_jwt_key_2025
 PORT=5000
 FRONTEND_URL=http://localhost:5173
-
+```
 ### Bước 3: Khởi động Database bằng Docker
 1. Quay lại thư mục gốc:
+```bash
 cd ..
 docker-compose up -d
 
-2. Kiểm tra:
+3. Kiểm tra:
 docker-compose ps
 # hoặc
 docker ps --filter "name=homestay_db"
 
 Database sẽ tự động chạy file `database/init.sql` để tạo bảng và seed data.
-
+```
 ### Bước 4: Cài đặt và chạy Backend
 
 ```bash
