@@ -7,3 +7,4 @@ export const getDefaultAssets = () => api.get('/handovers/assets/default');
 export const updateAssetCheck = (maBanGiao, maTaiSan, data) =>
   api.put(`/handovers/${maBanGiao}/assets/${maTaiSan}`, data);
 export const addAsset = (maBanGiao, data) => api.post(`/handovers/${maBanGiao}/assets`, data);
+export const getHandovers = (params) => api.get('/handovers', { params });
