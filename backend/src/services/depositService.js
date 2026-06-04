@@ -26,7 +26,7 @@ const createDepositRequest = async (data) => {
   // Validate room
   const phong = await Phong.findByPk(MaPhong);
   if (!phong) throw { statusCode: 404, message: 'Phòng không tồn tại' };
-  if (!['AVAILABLE', 'PENDING'].includes(phong.TinhTrang)) {
+  if (phong.TinhTrang !== 'AVAILABLE') {
     throw { statusCode: 400, message: 'Phòng không còn trống để đặt cọc' };
   }
 

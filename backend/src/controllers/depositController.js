@@ -53,10 +53,8 @@ const createDeposit = async (req, res, next) => {
     if (!maKH) {
       return errorResponse(res, 'Thiếu thông tin khách hàng (MaKH hoặc SDT)', 400);
     }
-
-    const count = await require('../models').DatCoc.count();
-    const maCoc = `COC-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
-
+    const { v4: uuidv4 } = require('uuid');
+    const maCoc = `COC-${uuidv4().slice(0, 8).toUpperCase()}`;
     const result = await depositService.createDepositRequest({
       MaCoc: maCoc,
       MaKH: maKH,

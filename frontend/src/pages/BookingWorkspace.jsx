@@ -14,7 +14,8 @@ import Badge from '../components/ui/Badge';
 import * as roomService from '../services/roomService';
 import * as depositService from '../services/depositService';
 import { useAuth } from '../hooks/useAuth';
-
+import * as lichXemService from '../services/lichXemService';
+import * as customerService from '../services/customerService';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROOM_TYPES = [
@@ -161,6 +162,9 @@ const BookingWorkspace = () => {
   const [khachDaDongY, setKhachDaDongY] = useState(false);
   const [creatingDeposit, setCreatingDeposit] = useState(false);
 
+   // ── Thêm state lưu mã khách hàng sau khi tạo cọc
+  const [khachHangId, setKhachHangId] = useState(null);
+
   // ── Form helpers
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -218,7 +222,7 @@ const BookingWorkspace = () => {
       if (form.soNguoiThue) params.SucChua = form.soNguoiThue;
       const res = await roomService.getAvailableRooms(params);
       // axios wraps body in .data; backend returns { success, data: [...] }
-      const raw = res?.data?.data ?? res?.data ?? [];
+      const raw = res?.data ?? [];
       // Normalize backend field names (PascalCase) to camelCase for RoomCard
       const list = (Array.isArray(raw) ? raw : []).map((r) => ({
         maPhong: r.MaPhong ?? r.maPhong,
@@ -247,27 +251,62 @@ const BookingWorkspace = () => {
   }, [form.loaiPhongMongMuon, form.ngayDuKienVaoO, form.soNguoiThue]);
 
   // ── Save registration (stub)
-  const handleLuuDangKy = () => {
-    if (!form.hoTenKhach.trim()) {
-      toast.error('Vui lòng nhập Họ tên khách.');
+  const handleLuuDangKy = async () => {
+    if (!form.hoTenKhach.trim() || !form.sdt.trim()) {
+      toast.error('Vui lòng nhập Họ tên và SĐT để lưu đăng ký.');
       return;
     }
-    toast.success('Đã lưu đăng ký thành công!');
+    try {
+      // Tìm kiếm khách hàng theo SĐT
+      const searchRes = await customerService.getAllCustomers({ search: form.sdt });
+      const existing = searchRes?.data?.customers?.[0];
+      if (existing) {
+        setKhachHangId(existing.MaKH);
+        toast.success('Đã tìm thấy thông tin khách hàng. Có thể tiếp tục.');
+      } else {
+        // Tạo mới khách hàng
+        const newCustomer = await customerService.createCustomer({
+          HoTen: form.hoTenKhach,
+          SDT: form.sdt,
+          Email: form.email || null,
+        });
+        // API trả về { success: true, data: { MaKH, ... } } sau interceptor
+        const maKH = newCustomer?.data?.MaKH || newCustomer?.MaKH;
+        setKhachHangId(maKH);
+        toast.success('Đã lưu thông tin đăng ký thành công!');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lưu đăng ký thất bại. Vui lòng thử lại.');
+    }
   };
-
   // ── Save schedule
   const handleLuuLichXem = async () => {
     if (!schedule.ngayXem || !schedule.gioXem) {
       toast.error('Vui lòng chọn ngày và giờ xem phòng.');
       return;
     }
+    if (!selectedRoom) {
+      toast.error('Chưa chọn phòng.');
+      return;
+    }
+    if (!khachHangId) {
+    toast.error('Vui lòng lưu đăng ký trước để tạo thông tin khách hàng.');
+    return;
+  }
     setSavingSchedule(true);
     try {
-      // Simulated save – replace with real API call (e.g. scheduleService.createSchedule)
-      await new Promise((res) => setTimeout(res, 800));
+      await lichXemService.createLichXem({
+        MaKH: khachHangId,
+        MaPhong: selectedRoom.maPhong,
+        NgayXem: schedule.ngayXem,
+        GioXem: schedule.gioXem,
+        GhiChu: schedule.ghiChu,
+      });
       setScheduleSaved(true);
       toast.success('Đã lưu lịch xem phòng!');
-    } catch {
+    } catch (error) {
+      console.error(error);
       toast.error('Lỗi khi lưu lịch xem. Vui lòng thử lại.');
     } finally {
       setSavingSchedule(false);
@@ -276,7 +315,7 @@ const BookingWorkspace = () => {
 
   // ── Create deposit
   const handleTaoYeuCauDatCoc = async () => {
-    if (!selectedRoom || !form.hoTenKhach.trim()) {
+    if (!selectedRoom || !form.hoTenKhach.trim() || !form.sdt.trim()) {
       toast.error('Thiếu thông tin khách hàng hoặc phòng.');
       return;
     }
@@ -286,21 +325,26 @@ const BookingWorkspace = () => {
       const giaThue = selectedRoom.giaThuePhanThang || selectedRoom.giaThue || 0;
       const tienCoc = giaThue * 2 * soGiuong;
 
-      await depositService.createDeposit({
+      const response = await depositService.createDeposit({
         maPhong: selectedRoom.maPhong,
         hoTenKhach: form.hoTenKhach,
         sdt: form.sdt,
-        email: form.email,
-        soNguoiThue: form.soNguoiThue,
-        loaiKhach: form.loaiKhach,
-        ngayVaoO: form.ngayDuKienVaoO,
+        email: form.email || undefined,
         tienCoc,
-        thanhVien: form.thanhVien,
+        phuongThucThanhToan: 'TIEN_MAT',
         ghiChu: form.ghiChuSale,
       });
 
-      toast.success('Tạo yêu cầu đặt cọc thành công! Đang chuyển hướng...');
-      setTimeout(() => navigate('/dashboard'), 1500);
+      // Lấy mã cọc và mã khách hàng từ response
+      const maCoc = response?.data?.MaCoc || response?.MaCoc;
+      const maKH = response?.data?.MaKH || response?.MaKH; // ← thêm dòng này
+      if (maCoc && maKH) {
+        setKhachHangId(maKH); // ← lưu lại để dùng cho lịch xem
+        toast.success('Tạo yêu cầu đặt cọc thành công! Chuyển sang lập hợp đồng...');
+        navigate('/contracts', { state: { maCoc } });
+      } else {
+        toast.error('Không nhận được mã cọc hoặc mã khách hàng, vui lòng thử lại.');
+      }
     } catch (err) {
       toast.error(err?.message || 'Tạo yêu cầu đặt cọc thất bại. Vui lòng thử lại.');
     } finally {

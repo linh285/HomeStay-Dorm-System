@@ -160,9 +160,8 @@ const RoomInventory = () => {
     setLoading(true);
     try {
       const res = await roomService.getRooms(params);
-      // api.js interceptor returns response.data directly
-      // so res = { success, message, data: [...] }
-      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      // res = { success: true, data: [...] }
+      const raw = Array.isArray(res?.data) ? res.data : [];
       // Backend returns PascalCase; normalize to camelCase for render
       const list = raw.map((r) => ({
         maPhong:      r.MaPhong     ?? r.maPhong,

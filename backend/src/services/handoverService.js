@@ -1,7 +1,7 @@
-const {
-  BangGiao, BangGiaoTaiSan, TaiSan, HopDongThueNha, Phong, Giuong, NhanVien, sequelize
-} = require('../models');
 
+const {
+  BangGiao, BangGiaoTaiSan, TaiSan, HopDongThueNha, Phong, Giuong, NhanVien, ChiTietThue, sequelize
+} = require('../models');
 // Default assets for a room handover
 const DEFAULT_ASSETS = [
   { tenTaiSan: 'Giường tầng', soLuong: 2, loaiTaiSan: 'Nội thất' },
@@ -113,12 +113,12 @@ const confirmHandover = async (maBanGiao) => {
   const bangGiao = await BangGiao.findByPk(maBanGiao, {
     include: [
       { model: TaiSan, as: 'taiSans', through: { attributes: ['DaKiemTra'] } },
-      { model: HopDongThueNha, as: 'hopDong' },
+      { model: HopDongThueNha, as: 'hopDong', include: [{ model: Phong, as: 'phong' }] },
     ],
   });
   if (!bangGiao) throw { statusCode: 404, message: 'Biên bản bàn giao không tồn tại' };
 
-  // Check all assets inspected
+  // Kiểm tra tất cả tài sản đã được kiểm tra
   const unchecked = bangGiao.taiSans.filter(ts => !ts.BangGiaoTaiSan.DaKiemTra);
   if (unchecked.length > 0) {
     throw { statusCode: 400, message: `Còn ${unchecked.length} tài sản chưa được kiểm tra` };
@@ -128,16 +128,49 @@ const confirmHandover = async (maBanGiao) => {
   try {
     await bangGiao.update({ TinhTrang: 'COMPLETED' }, { transaction: t });
 
-    // Update room status to OCCUPIED
     if (bangGiao.hopDong?.MaPhong) {
-      await Phong.update(
-        { TinhTrang: 'OCCUPIED' },
-        { where: { MaPhong: bangGiao.hopDong.MaPhong }, transaction: t }
-      );
-      await Giuong.update(
-        { TinhTrang: 'OCCUPIED' },
-        { where: { MaPhong: bangGiao.hopDong.MaPhong }, transaction: t }
-      );
+      // Lấy danh sách giường được thuê từ ChiTietThue
+      const chiTietThue = await ChiTietThue.findAll({
+        where: { MaHopDong: bangGiao.MaHopDong },
+        include: [{ model: Giuong, as: 'giuong' }],
+        transaction: t,
+      });
+
+      const rentedBedIds = chiTietThue.map(ct => ct.MaGiuong).filter(id => id);
+
+      if (rentedBedIds.length > 0) {
+        // Thuê giường lẻ: chỉ cập nhật giường được thuê
+        await Giuong.update(
+          { TinhTrang: 'OCCUPIED' },
+          { where: { MaGiuong: rentedBedIds }, transaction: t }
+        );
+
+        // Kiểm tra nếu tất cả giường trong phòng đều OCCUPIED thì mới cập nhật phòng
+        const totalBedsInRoom = await Giuong.count({
+          where: { MaPhong: bangGiao.hopDong.MaPhong },
+          transaction: t,
+        });
+        const occupiedBeds = await Giuong.count({
+          where: { MaPhong: bangGiao.hopDong.MaPhong, TinhTrang: 'OCCUPIED' },
+          transaction: t,
+        });
+        if (totalBedsInRoom === occupiedBeds) {
+          await Phong.update(
+            { TinhTrang: 'OCCUPIED' },
+            { where: { MaPhong: bangGiao.hopDong.MaPhong }, transaction: t }
+          );
+        }
+      } else {
+        // Thuê nguyên phòng: cập nhật tất cả giường và phòng
+        await Phong.update(
+          { TinhTrang: 'OCCUPIED' },
+          { where: { MaPhong: bangGiao.hopDong.MaPhong }, transaction: t }
+        );
+        await Giuong.update(
+          { TinhTrang: 'OCCUPIED' },
+          { where: { MaPhong: bangGiao.hopDong.MaPhong }, transaction: t }
+        );
+      }
     }
 
     await t.commit();

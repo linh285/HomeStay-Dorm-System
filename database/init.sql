@@ -2,7 +2,7 @@
 -- HomeStay Dorm System - Database Initialization Script
 -- PostgreSQL 15
 -- =============================================================
-
+-- CREATE DATABASE homestay_db;
 -- Set client encoding
 SET client_encoding = 'UTF8';
 

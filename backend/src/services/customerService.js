@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { KhachHang } = require('../models');
+const { v4: uuidv4 } = require('uuid');
 
 const getAllCustomers = async (filters = {}) => {
   const { search, page = 1, limit = 20 } = filters;
@@ -26,8 +27,7 @@ const getCustomerById = async (maKH) => {
 };
 
 const createCustomer = async (data) => {
-  const count = await KhachHang.count();
-  const maKH = `KH-${String(count + 1).padStart(4, '0')}`;
+  const maKH = `KH-${uuidv4().slice(0, 8).toUpperCase()}`;
   return await KhachHang.create({ MaKH: maKH, ...data });
 };
 

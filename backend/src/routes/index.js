@@ -12,5 +12,6 @@ router.use('/invoices', require('./invoiceRoutes'));
 router.use('/policies', require('./policyRoutes'));
 router.use('/dashboard', require('./dashboardRoutes'));
 router.use('/customers', require('./customerRoutes'));
+router.use('/lich-xem', require('./lichXemRoutes'));
 
 module.exports = router;

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   FiUser, FiFileText, FiAlertTriangle, FiCheckCircle,
@@ -10,28 +10,7 @@ import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import * as contractService from '../services/contractService';
-
-// ─── Simulated pre-filled data (real data comes from booking workspace) ───────
-const MOCK_CONTRACT_DATA = {
-  maHopDong: 'HD-2024-0087',
-  ngayBatDau: '2024-07-01',
-  ngayKetThuc: '2025-06-30',
-  khachThue: 'Nguyễn Văn An',
-  cccd: '079203012345',
-  sdt: '0912 345 678',
-  loaiKhach: 'Nhóm',
-  trangThaiXacMinh: 'Đã xác minh',
-  phong: 'P.201 – Giường B2',
-  giaThue: 1_800_000,
-  soNguoiThue: 3,
-  kyThanhToan: 'MONTHLY',
-};
-
-const MOCK_MEMBERS = [
-  { id: 1, hoTen: 'Nguyễn Văn An', giayTo: 'CCCD 079203012345', trangThai: null },
-  { id: 2, hoTen: 'Trần Thị Bảo', giayTo: 'CCCD 031204056789', trangThai: null },
-  { id: 3, hoTen: 'Lê Minh Cường', giayTo: 'CMND 340123456', trangThai: null },
-];
+import * as depositService from '../services/depositService';
 
 const KY_THANH_TOAN_OPTIONS = [
   { value: 'MONTHLY', label: 'Hàng tháng' },
@@ -60,50 +39,83 @@ Tiền điện tính theo chỉ số công tơ riêng với giá 3.500đ/kWh. Ti
 6. CHẤM DỨT HỢP ĐỒNG
 Bên thuê cần thông báo trước ít nhất 30 ngày. Vi phạm điều khoản nghiêm trọng sẽ dẫn đến chấm dứt hợp đồng ngay lập tức và mất tiền cọc.`;
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
 const formatCurrency = (n) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 
-// ─── Component ───────────────────────────────────────────────────────────────
 const ContractCreation = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const maCoc = location.state?.maCoc;
 
-  // Screening state
-  const [members, setMembers] = useState(MOCK_MEMBERS);
+  // State cho dữ liệu từ backend
+  const [loadingData, setLoadingData] = useState(true);
+  const [khachHang, setKhachHang] = useState(null);
+  const [phong, setPhong] = useState(null);
+  const [giaThue, setGiaThue] = useState(0);
+  const [soTienCoc, setSoTienCoc] = useState(0);
+  const [members, setMembers] = useState([]); // danh sách thành viên nhóm (nếu có)
+
+  // State cho rà soát
   const [screeningSaved, setScreeningSaved] = useState(false);
   const [contractUnlocked, setContractUnlocked] = useState(false);
 
-  // Contract form state
+  // State cho form hợp đồng
   const [form, setForm] = useState({
-    ngayBatDau: MOCK_CONTRACT_DATA.ngayBatDau,
-    ngayKetThuc: MOCK_CONTRACT_DATA.ngayKetThuc,
-    soNguoiThue: String(MOCK_CONTRACT_DATA.soNguoiThue),
-    kyThanhToan: MOCK_CONTRACT_DATA.kyThanhToan,
+    ngayBatDau: '',
+    ngayKetThuc: '',
+    soNguoiThue: '1',
+    kyThanhToan: 'MONTHLY',
   });
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [createdContractId, setCreatedContractId] = useState('');
 
-  const isGroupTenant = MOCK_CONTRACT_DATA.loaiKhach === 'Nhóm';
+  // Fetch dữ liệu từ deposit
+  useEffect(() => {
+    if (!maCoc) {
+      toast.error('Không tìm thấy thông tin đặt cọc. Vui lòng quay lại.');
+      navigate('/booking');
+      return;
+    }
 
-  // ── Derived state ─────────────────────────────────────────────────────────
-  const allChecked = members.every((m) => m.trangThai !== null);
-  const approvedCount = members.filter((m) => m.trangThai === 'dat').length;
-  const failedCount = members.filter((m) => m.trangThai === 'khong_dat').length;
-  const allFailed = failedCount === members.length;
+    depositService.getDepositById(maCoc)
+      .then(res => {
+        // res = { success: true, data: { ... } }
+        const deposit = res.data;   // ← LẤY data bên trong
+        setKhachHang(deposit.khachHang);
+        setPhong(deposit.phong);
+        setGiaThue(deposit.phong?.GiaThue || 0);
+        setSoTienCoc(deposit.SoTienCoc || 0);
+        setMembers([]);
+        const today = new Date().toISOString().split('T')[0];
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        const nextYearStr = nextYear.toISOString().split('T')[0];
+        setForm(prev => ({
+          ...prev,
+          ngayBatDau: today,
+          ngayKetThuc: nextYearStr,
+        }));
+        setLoadingData(false);
+      })
+      .catch(err => {
+        toast.error('Không thể tải thông tin đặt cọc: ' + (err.message || ''));
+        navigate('/booking');
+      });
+  }, [maCoc, navigate]);
+
+  const allChecked = members.length === 0 || members.every(m => m.trangThai !== null);
+  const approvedCount = members.filter(m => m.trangThai === 'dat').length;
+  const failedCount = members.filter(m => m.trangThai === 'khong_dat').length;
+  const allFailed = members.length > 0 && failedCount === members.length;
   const someFailedNotAll = failedCount > 0 && !allFailed;
 
-  const isFormValid =
-    agreed &&
-    form.ngayBatDau &&
-    form.ngayKetThuc &&
-    form.soNguoiThue &&
-    form.kyThanhToan;
+  const isFormValid = agreed && form.ngayBatDau && form.ngayKetThuc && form.soNguoiThue && form.kyThanhToan;
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleMemberStatus = (id, status) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, trangThai: status } : m))
+    setMembers(prev =>
+      prev.map(m => (m.id === id ? { ...m, trangThai: status } : m))
     );
     setScreeningSaved(false);
     setContractUnlocked(false);
@@ -115,7 +127,7 @@ const ContractCreation = () => {
       return;
     }
     setScreeningSaved(true);
-    if (approvedCount > 0) {
+    if (approvedCount > 0 || members.length === 0) {
       setContractUnlocked(true);
       toast.success('Kết quả rà soát đã được lưu. Có thể lập hợp đồng.');
     } else {
@@ -133,45 +145,58 @@ const ContractCreation = () => {
   };
 
   const handleCreateContract = async () => {
+    if (loading) return;
     if (!isFormValid) return;
     setLoading(true);
     try {
-      await contractService.createContract({
-        // maPhong is null here because ContractCreation uses mock data;
-        // in production this would come from the booking flow with a real maPhong
-        maPhong: null,
+      const res = await contractService.createContract({
+        maPhong: phong?.MaPhong,
         ngayBatDau: form.ngayBatDau,
         ngayKetThuc: form.ngayKetThuc,
-        giaThue: MOCK_CONTRACT_DATA.giaThue,
+        giaThue: giaThue,
         noiQuy: DIEU_KHOAN_TEXT,
+        chiTietThue: [], // Nếu thuê giường lẻ thì cần truyền, hiện tại thuê nguyên phòng
       });
+      setCreatedContractId(res?.MaHopDong || '');
       setInfoModalOpen(true);
     } catch (err) {
-      // Interceptor rejects with the body: { success: false, message }
       toast.error(err?.message || 'Tạo hợp đồng thất bại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Sub-components ────────────────────────────────────────────────────────
   const memberStatusBadge = (trangThai) => {
     if (trangThai === 'dat')
-      return (
-        <span style={s.badgeDat}>
-          <FiCheckCircle size={11} /> Đạt
-        </span>
-      );
+      return <span style={s.badgeDat}><FiCheckCircle size={11} /> Đạt</span>;
     if (trangThai === 'khong_dat')
-      return (
-        <span style={s.badgeKhongDat}>
-          <FiXCircle size={11} /> Không đạt
-        </span>
-      );
+      return <span style={s.badgeKhongDat}><FiXCircle size={11} /> Không đạt</span>;
     return <span style={s.badgePending}>Chưa xét</span>;
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  if (loadingData) {
+    return (
+      <div style={s.page}>
+        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+          <div className="spinner" style={{ margin: '0 auto 20px' }} />
+          <p>Đang tải thông tin đặt cọc...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!khachHang || !phong) {
+    return (
+      <div style={s.page}>
+        <div className="card" style={{ textAlign: 'center', padding: 40, color: 'red' }}>
+          <FiAlertTriangle size={48} />
+          <p>Không tìm thấy thông tin hợp lệ. Vui lòng quay lại màn đăng ký.</p>
+          <Button variant="primary" onClick={() => navigate('/booking')}>Quay lại</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={s.page}>
       {/* Back button */}
@@ -189,124 +214,74 @@ const ContractCreation = () => {
         </button>
       </div>
 
-      {/* ════ TOP SECTION: Screening ════════════════════════════════════════ */}
+      {/* TOP SECTION: Screening */}
       <div style={s.card}>
-        {/* Card header */}
         <div style={s.cardHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={s.iconWrap}>
-              <FiUser size={16} color="#0A58CA" />
-            </div>
+            <div style={s.iconWrap}><FiUser size={16} color="#0A58CA" /></div>
             <div>
               <div style={s.cardTitle}>Rà soát điều kiện lưu trú</div>
-              <div style={s.cardSubtitle}>
-                Kiểm tra và xác nhận điều kiện của khách trước khi lập hợp đồng
-              </div>
+              <div style={s.cardSubtitle}>Kiểm tra và xác nhận điều kiện của khách trước khi lập hợp đồng</div>
             </div>
           </div>
         </div>
-
         <div style={s.cardBody}>
-          {/* Tenant info row */}
           <div style={s.tenantInfoGrid}>
-            <InfoItem icon={<FiUser size={13} />} label="Họ tên" value={MOCK_CONTRACT_DATA.khachThue} />
-            <InfoItem icon={<FiFileText size={13} />} label="CCCD" value={MOCK_CONTRACT_DATA.cccd} />
-            <InfoItem icon={<FiUser size={13} />} label="SĐT" value={MOCK_CONTRACT_DATA.sdt} />
-            <InfoItem
-              icon={<FiUser size={13} />}
-              label="Loại khách"
-              value={MOCK_CONTRACT_DATA.loaiKhach}
-            />
+            <InfoItem icon={<FiUser size={13} />} label="Họ tên" value={khachHang?.HoTen || '—'} />
+            <InfoItem icon={<FiFileText size={13} />} label="CCCD" value={khachHang?.GiayToTuyThan || '—'} />
+            <InfoItem icon={<FiUser size={13} />} label="SĐT" value={khachHang?.SDT || '—'} />
+            <InfoItem icon={<FiUser size={13} />} label="Loại khách" value={members.length > 0 ? 'Nhóm' : 'Cá nhân'} />
             <div style={{ gridColumn: 'span 2' }}>
               <InfoItem
                 icon={<FiCheckCircle size={13} />}
                 label="Trạng thái xác minh"
-                value={
-                  <Badge variant="success">{MOCK_CONTRACT_DATA.trangThaiXacMinh}</Badge>
-                }
+                value={<Badge variant="success">Đã xác minh</Badge>}
               />
             </div>
           </div>
 
-          {/* Group members table */}
-          {isGroupTenant && (
+          {/* Group members table (nếu có) */}
+          {members.length > 0 && (
             <div style={{ marginTop: 20 }}>
               <div style={s.tableLabel}>Danh sách thành viên nhóm</div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={s.table}>
                   <thead>
-                    <tr>
-                      <th style={s.th}>Họ tên</th>
-                      <th style={s.th}>Giấy tờ</th>
-                      <th style={{ ...s.th, textAlign: 'center' }}>Trạng thái</th>
-                      <th style={{ ...s.th, textAlign: 'center' }}>Thao tác</th>
-                    </tr>
+                    <tr><th style={s.th}>Họ tên</th><th style={s.th}>Giấy tờ</th><th style={{ ...s.th, textAlign: 'center' }}>Trạng thái</th><th style={{ ...s.th, textAlign: 'center' }}>Thao tác</th></tr>
                   </thead>
                   <tbody>
-                    {members.map((m) => {
-                      const resolved = m.trangThai !== null;
-                      return (
-                        <tr key={m.id} style={s.tr}>
-                          <td style={s.td}>{m.hoTen}</td>
-                          <td style={s.td}>{m.giayTo}</td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            {memberStatusBadge(m.trangThai)}
-                          </td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                              <button
-                                style={{
-                                  ...s.actionBtn,
-                                  ...s.actionBtnDat,
-                                  opacity: resolved ? 0.45 : 1,
-                                  cursor: resolved ? 'not-allowed' : 'pointer',
-                                }}
-                                disabled={resolved}
-                                onClick={() => handleMemberStatus(m.id, 'dat')}
-                              >
-                                <FiCheckCircle size={13} /> Đạt
-                              </button>
-                              <button
-                                style={{
-                                  ...s.actionBtn,
-                                  ...s.actionBtnKhong,
-                                  opacity: resolved ? 0.45 : 1,
-                                  cursor: resolved ? 'not-allowed' : 'pointer',
-                                }}
-                                disabled={resolved}
-                                onClick={() => handleMemberStatus(m.id, 'khong_dat')}
-                              >
-                                <FiXCircle size={13} /> Không đạt
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {members.map((m) => (
+                      <tr key={m.id}>
+                        <td style={s.td}>{m.hoTen}</td>
+                        <td style={s.td}>{m.giayTo}</td>
+                        <td style={{ ...s.td, textAlign: 'center' }}>{memberStatusBadge(m.trangThai)}</td>
+                        <td style={{ ...s.td, textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                            <button style={{ ...s.actionBtn, ...s.actionBtnDat }} disabled={m.trangThai !== null} onClick={() => handleMemberStatus(m.id, 'dat')}>
+                              <FiCheckCircle size={13} /> Đạt
+                            </button>
+                            <button style={{ ...s.actionBtn, ...s.actionBtnKhong }} disabled={m.trangThai !== null} onClick={() => handleMemberStatus(m.id, 'khong_dat')}>
+                              <FiXCircle size={13} /> Không đạt
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* Warning banner – some failed but not all */}
           {screeningSaved && someFailedNotAll && (
             <div style={s.warningBanner}>
               <FiAlertTriangle size={16} color="#856404" />
-              <span>
-                <strong>{failedCount} thành viên</strong> không đạt yêu cầu. Họ sẽ không được ghi
-                nhận trong hợp đồng. Hợp đồng chỉ áp dụng cho {approvedCount} thành viên đạt.
-              </span>
+              <span><strong>{failedCount} thành viên</strong> không đạt yêu cầu. Hợp đồng chỉ áp dụng cho {approvedCount} thành viên đạt.</span>
             </div>
           )}
 
-          {/* Action buttons */}
           <div style={s.screeningActions}>
-            <Button
-              variant="primary"
-              onClick={handleSaveScreening}
-              disabled={!allChecked}
-            >
+            <Button variant="primary" onClick={handleSaveScreening} disabled={!allChecked}>
               <FiCheckCircle size={14} /> Lưu kết quả rà soát
             </Button>
             {screeningSaved && allFailed && (
@@ -318,427 +293,102 @@ const ContractCreation = () => {
         </div>
       </div>
 
-      {/* ════ BOTTOM SECTION: Contract Form ════════════════════════════════ */}
-      <div
-        style={{
-          ...s.card,
-          opacity: contractUnlocked ? 1 : 0.5,
-          pointerEvents: contractUnlocked ? 'auto' : 'none',
-          position: 'relative',
-        }}
-      >
-        {/* Locked overlay message */}
+      {/* BOTTOM SECTION: Contract Form */}
+      <div style={{ ...s.card, opacity: contractUnlocked ? 1 : 0.5, pointerEvents: contractUnlocked ? 'auto' : 'none', position: 'relative' }}>
         {!contractUnlocked && (
           <div style={s.lockedOverlay}>
             <FiInfo size={18} color="#6c757d" />
-            <span style={{ color: '#6c757d', fontSize: 14 }}>
-              Chưa thể lập hợp đồng. Vui lòng hoàn tất rà soát phía trên.
-            </span>
+            <span style={{ color: '#6c757d', fontSize: 14 }}>Chưa thể lập hợp đồng. Vui lòng hoàn tất rà soát phía trên.</span>
           </div>
         )}
-
-        {/* Card header */}
         <div style={s.cardHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={s.iconWrap}>
-              <FiFileText size={16} color="#0A58CA" />
-            </div>
+            <div style={s.iconWrap}><FiFileText size={16} color="#0A58CA" /></div>
             <div>
               <div style={s.cardTitle}>Lập hợp đồng thuê</div>
-              <div style={s.cardSubtitle}>
-                Điền đầy đủ thông tin và xác nhận điều khoản trước khi tạo hợp đồng
-              </div>
+              <div style={s.cardSubtitle}>Điền đầy đủ thông tin và xác nhận điều khoản trước khi tạo hợp đồng</div>
             </div>
           </div>
         </div>
-
         <div style={s.cardBody}>
-          {/* 2-column form */}
           <div style={s.formGrid}>
-            {/* Mã hợp đồng */}
-            <Input
-              label="Mã hợp đồng"
-              value={MOCK_CONTRACT_DATA.maHopDong}
-              readOnly
-              onChange={() => {}}
-            />
-            {/* Ngày bắt đầu */}
-            <Input
-              label="Ngày bắt đầu"
-              type="date"
-              required
-              value={form.ngayBatDau}
-              onChange={(e) => setForm((f) => ({ ...f, ngayBatDau: e.target.value }))}
-              icon={<FiCalendar size={14} />}
-            />
-            {/* Khách thuê */}
-            <Input
-              label="Khách thuê"
-              value={MOCK_CONTRACT_DATA.khachThue}
-              readOnly
-              onChange={() => {}}
-              icon={<FiUser size={14} />}
-            />
-            {/* Ngày kết thúc */}
-            <Input
-              label="Ngày kết thúc"
-              type="date"
-              required
-              value={form.ngayKetThuc}
-              onChange={(e) => setForm((f) => ({ ...f, ngayKetThuc: e.target.value }))}
-              icon={<FiCalendar size={14} />}
-            />
-            {/* Phòng/giường */}
-            <Input
-              label="Phòng / Giường"
-              value={MOCK_CONTRACT_DATA.phong}
-              readOnly
-              onChange={() => {}}
-              icon={<FiHome size={14} />}
-            />
-            {/* Giá thuê */}
-            <Input
-              label="Giá thuê (VNĐ/tháng)"
-              value={formatCurrency(MOCK_CONTRACT_DATA.giaThue)}
-              readOnly
-              onChange={() => {}}
-            />
-            {/* Số người thuê */}
-            <Input
-              label="Số người thuê"
-              type="number"
-              required
-              value={form.soNguoiThue}
-              onChange={(e) => setForm((f) => ({ ...f, soNguoiThue: e.target.value }))}
-              placeholder="Nhập số người"
-            />
-            {/* Kỳ thanh toán */}
-            <Input
-              label="Kỳ thanh toán"
-              type="select"
-              required
-              value={form.kyThanhToan}
-              onChange={(e) => setForm((f) => ({ ...f, kyThanhToan: e.target.value }))}
-              options={KY_THANH_TOAN_OPTIONS}
-              placeholder="-- Chọn kỳ thanh toán --"
-            />
+            <Input label="Mã hợp đồng" value={`HD-${Date.now()}`} readOnly onChange={() => {}} />
+            <Input label="Ngày bắt đầu" type="date" required value={form.ngayBatDau} onChange={(e) => setForm(f => ({ ...f, ngayBatDau: e.target.value }))} icon={<FiCalendar size={14} />} />
+            <Input label="Khách thuê" value={khachHang?.HoTen || ''} readOnly onChange={() => {}} icon={<FiUser size={14} />} />
+            <Input label="Ngày kết thúc" type="date" required value={form.ngayKetThuc} onChange={(e) => setForm(f => ({ ...f, ngayKetThuc: e.target.value }))} icon={<FiCalendar size={14} />} />
+            <Input label="Phòng / Giường" value={phong?.MaPhong || ''} readOnly onChange={() => {}} icon={<FiHome size={14} />} />
+            <Input label="Giá thuê (VNĐ/tháng)" value={formatCurrency(giaThue)} readOnly onChange={() => {}} />
+            <Input label="Số người thuê" type="number" required value={form.soNguoiThue} onChange={(e) => setForm(f => ({ ...f, soNguoiThue: e.target.value }))} placeholder="Nhập số người" />
+            <Input label="Kỳ thanh toán" type="select" required value={form.kyThanhToan} onChange={(e) => setForm(f => ({ ...f, kyThanhToan: e.target.value }))} options={KY_THANH_TOAN_OPTIONS} />
           </div>
 
-          {/* Điều khoản */}
           <div style={{ marginTop: 20 }}>
-            <Input
-              label="Điều khoản hợp đồng"
-              type="textarea"
-              value={DIEU_KHOAN_TEXT}
-              readOnly
-              onChange={() => {}}
-              rows={6}
-              style={{ marginTop: 0 }}
-            />
-            {/* Make textarea scrollable at fixed height */}
-            <style>{`
-              textarea[readonly] { height: 120px !important; overflow-y: auto !important; resize: none !important; }
-            `}</style>
+            <Input label="Điều khoản hợp đồng" type="textarea" value={DIEU_KHOAN_TEXT} readOnly onChange={() => {}} rows={6} />
+            <style>{`textarea[readonly] { height: 120px !important; overflow-y: auto !important; resize: none !important; }`}</style>
           </div>
 
-          {/* Agreement checkbox */}
           <label style={s.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              style={s.checkbox}
-            />
-            <span>
-              Tôi đã đọc và đồng ý với{' '}
-              <span style={{ color: '#0A58CA', fontWeight: 500 }}>điều khoản hợp đồng</span>{' '}
-              nêu trên
-            </span>
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={s.checkbox} />
+            <span>Tôi đã đọc và đồng ý với <span style={{ color: '#0A58CA', fontWeight: 500 }}>điều khoản hợp đồng</span> nêu trên</span>
           </label>
 
-          {/* Action buttons */}
           <div style={s.contractActions}>
-            <Button variant="outline" onClick={handlePreview} disabled={!contractUnlocked}>
-              <FiEye size={14} /> Xem trước hợp đồng
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleCreateContract}
-              loading={loading}
-              disabled={!isFormValid || !contractUnlocked}
-            >
-              <FiFileText size={14} /> Tạo hợp đồng
-            </Button>
+            <Button variant="outline" onClick={handlePreview} disabled={!contractUnlocked}><FiEye size={14} /> Xem trước hợp đồng</Button>
+            <Button variant="primary" onClick={handleCreateContract} loading={loading} disabled={!isFormValid || !contractUnlocked}><FiFileText size={14} /> Tạo hợp đồng</Button>
           </div>
         </div>
       </div>
 
-      {/* ════ INFO MODAL (after contract created) ══════════════════════════ */}
-      <Modal
-        isOpen={infoModalOpen}
-        onClose={() => {
-          setInfoModalOpen(false);
-          navigate('/dashboard');
-        }}
-        title="Hợp đồng đã được tạo"
-        size="md"
-        footer={
-          <Button
-            variant="primary"
-            onClick={() => {
-              setInfoModalOpen(false);
-              navigate('/dashboard');
-            }}
-          >
-            Về trang chủ
-          </Button>
-        }
-      >
+      {/* Info Modal */}
+      <Modal isOpen={infoModalOpen} onClose={() => { setInfoModalOpen(false); navigate('/dashboard'); }} title="Hợp đồng đã được tạo" size="md" footer={<Button variant="primary" onClick={() => { setInfoModalOpen(false); navigate('/dashboard'); }}>Về trang chủ</Button>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={s.modalSuccessIcon}>
-            <FiCheckCircle size={48} color="#198754" />
-          </div>
+          <div style={s.modalSuccessIcon}><FiCheckCircle size={48} color="#198754" /></div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
-              Hợp đồng <span style={{ color: '#0A58CA' }}>{MOCK_CONTRACT_DATA.maHopDong}</span> đã
-              được tạo thành công!
-            </div>
-            <div style={{ color: '#6c757d', fontSize: 14, lineHeight: 1.6 }}>
-              Hợp đồng hiện đang ở trạng thái{' '}
-              <Badge variant="warning">PENDING_FIRST_PAYMENT</Badge> — chờ khách thanh toán tiền
-              thuê kỳ đầu tiên.
-            </div>
+            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Hợp đồng <span style={{ color: '#0A58CA' }}>{createdContractId}</span> đã được tạo thành công!</div>
+            <div style={{ color: '#6c757d', fontSize: 14, lineHeight: 1.6 }}>Hợp đồng hiện đang ở trạng thái <Badge variant="warning">PENDING_FIRST_PAYMENT</Badge> — chờ khách thanh toán tiền thuê kỳ đầu tiên.</div>
           </div>
-          <div style={s.infoBanner}>
-            <FiInfo size={15} color="#084298" />
-            <span style={{ fontSize: 13 }}>
-              Sau khi khách thanh toán thành công, hợp đồng sẽ tự động chuyển sang trạng thái{' '}
-              <strong>ACTIVE</strong> và bạn có thể tiến hành bàn giao phòng.
-            </span>
-          </div>
+          <div style={s.infoBanner}><FiInfo size={15} color="#084298" /><span style={{ fontSize: 13 }}>Sau khi khách thanh toán thành công, hợp đồng sẽ tự động chuyển sang trạng thái <strong>ACTIVE</strong> và bạn có thể tiến hành bàn giao phòng.</span></div>
         </div>
       </Modal>
     </div>
   );
 };
 
-// ─── InfoItem helper ──────────────────────────────────────────────────────────
 const InfoItem = ({ icon, label, value }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-    <span style={{ fontSize: 12, color: '#6c757d', display: 'flex', alignItems: 'center', gap: 4 }}>
-      {icon} {label}
-    </span>
+    <span style={{ fontSize: 12, color: '#6c757d', display: 'flex', alignItems: 'center', gap: 4 }}>{icon} {label}</span>
     <span style={{ fontSize: 14, fontWeight: 500, color: '#212529' }}>{value}</span>
   </div>
 );
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  page: {
-    padding: '24px',
-    maxWidth: '1000px',
-    margin: '0 auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-    fontFamily: 'Inter, sans-serif',
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    border: '1px solid #e9ecef',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-    overflow: 'hidden',
-    transition: 'opacity 0.2s ease',
-  },
-  cardHeader: {
-    padding: '18px 24px',
-    borderBottom: '1px solid #e9ecef',
-    backgroundColor: '#fafbfc',
-  },
-  cardTitle: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#212529',
-  },
-  cardSubtitle: {
-    fontSize: '13px',
-    color: '#6c757d',
-    marginTop: '2px',
-  },
-  cardBody: {
-    padding: '24px',
-  },
-  iconWrap: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '8px',
-    backgroundColor: '#e8f0fe',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  tenantInfoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '16px',
-  },
-  tableLabel: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#495057',
-    marginBottom: '10px',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '14px',
-  },
-  th: {
-    padding: '10px 14px',
-    textAlign: 'left',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#6c757d',
-    backgroundColor: '#f8f9fa',
-    borderBottom: '1px solid #e9ecef',
-    textTransform: 'uppercase',
-    letterSpacing: '0.4px',
-    whiteSpace: 'nowrap',
-  },
-  tr: {
-    borderBottom: '1px solid #f1f3f5',
-  },
-  td: {
-    padding: '12px 14px',
-    color: '#212529',
-    verticalAlign: 'middle',
-  },
-  badgeDat: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    padding: '3px 9px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: '500',
-    backgroundColor: '#d1e7dd',
-    color: '#0f5132',
-  },
-  badgeKhongDat: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    padding: '3px 9px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: '500',
-    backgroundColor: '#f8d7da',
-    color: '#842029',
-  },
-  badgePending: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '3px 9px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: '500',
-    backgroundColor: '#f1f3f5',
-    color: '#6c757d',
-  },
-  actionBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    padding: '5px 12px',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: '500',
-    border: '1px solid transparent',
-    transition: 'opacity 0.15s',
-  },
-  actionBtnDat: {
-    backgroundColor: '#d1e7dd',
-    color: '#0f5132',
-    border: '1px solid #badbcc',
-  },
-  actionBtnKhong: {
-    backgroundColor: '#f8d7da',
-    color: '#842029',
-    border: '1px solid #f5c2c7',
-  },
-  warningBanner: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '10px',
-    marginTop: '16px',
-    padding: '12px 16px',
-    borderRadius: '8px',
-    backgroundColor: '#fff3cd',
-    border: '1px solid #ffecb5',
-    fontSize: '13px',
-    color: '#664d03',
-    lineHeight: 1.5,
-  },
-  screeningActions: {
-    display: 'flex',
-    gap: '12px',
-    marginTop: '20px',
-    flexWrap: 'wrap',
-  },
-  lockedOverlay: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-    padding: '10px 0 0',
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '16px',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    marginTop: '18px',
-    fontSize: '14px',
-    color: '#495057',
-    cursor: 'pointer',
-    userSelect: 'none',
-  },
-  checkbox: {
-    width: '16px',
-    height: '16px',
-    accentColor: '#0A58CA',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  contractActions: {
-    display: 'flex',
-    gap: '12px',
-    marginTop: '20px',
-    justifyContent: 'flex-end',
-    flexWrap: 'wrap',
-  },
-  modalSuccessIcon: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  infoBanner: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '10px',
-    padding: '12px 14px',
-    borderRadius: '8px',
-    backgroundColor: '#cfe2ff',
-    border: '1px solid #b6d4fe',
-    color: '#084298',
-    lineHeight: 1.55,
-  },
+  page: { padding: '24px', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: 'Inter, sans-serif' },
+  card: { backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e9ecef', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden', transition: 'opacity 0.2s ease' },
+  cardHeader: { padding: '18px 24px', borderBottom: '1px solid #e9ecef', backgroundColor: '#fafbfc' },
+  cardTitle: { fontSize: '16px', fontWeight: '600', color: '#212529' },
+  cardSubtitle: { fontSize: '13px', color: '#6c757d', marginTop: '2px' },
+  cardBody: { padding: '24px' },
+  iconWrap: { width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e8f0fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  tenantInfoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' },
+  tableLabel: { fontSize: '13px', fontWeight: '600', color: '#495057', marginBottom: '10px' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: '14px' },
+  th: { padding: '10px 14px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6c757d', backgroundColor: '#f8f9fa', borderBottom: '1px solid #e9ecef', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' },
+  td: { padding: '12px 14px', color: '#212529', verticalAlign: 'middle' },
+  badgeDat: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', backgroundColor: '#d1e7dd', color: '#0f5132' },
+  badgeKhongDat: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', backgroundColor: '#f8d7da', color: '#842029' },
+  badgePending: { display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: '20px', fontSize: '12px', fontWeight: '500', backgroundColor: '#f1f3f5', color: '#6c757d' },
+  actionBtn: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '500', border: '1px solid transparent', transition: 'opacity 0.15s' },
+  actionBtnDat: { backgroundColor: '#d1e7dd', color: '#0f5132', border: '1px solid #badbcc' },
+  actionBtnKhong: { backgroundColor: '#f8d7da', color: '#842029', border: '1px solid #f5c2c7' },
+  warningBanner: { display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '16px', padding: '12px 16px', borderRadius: '8px', backgroundColor: '#fff3cd', border: '1px solid #ffecb5', fontSize: '13px', color: '#664d03', lineHeight: 1.5 },
+  screeningActions: { display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' },
+  lockedOverlay: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '10px 0 0' },
+  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
+  checkboxLabel: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '18px', fontSize: '14px', color: '#495057', cursor: 'pointer', userSelect: 'none' },
+  checkbox: { width: '16px', height: '16px', accentColor: '#0A58CA', cursor: 'pointer', flexShrink: 0 },
+  contractActions: { display: 'flex', gap: '12px', marginTop: '20px', justifyContent: 'flex-end', flexWrap: 'wrap' },
+  modalSuccessIcon: { display: 'flex', justifyContent: 'center', marginTop: 8 },
+  infoBanner: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', borderRadius: '8px', backgroundColor: '#cfe2ff', border: '1px solid #b6d4fe', color: '#084298', lineHeight: 1.55 },
 };
 
 export default ContractCreation;

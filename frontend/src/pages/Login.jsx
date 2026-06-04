@@ -395,7 +395,7 @@ const Login = () => {
       });
 
       // api interceptor returns response body directly (e.g. { success, data: { token, user } })
-      login(response.data || response);
+      login(response);
 
       if (formData.rememberMe) {
         localStorage.setItem('homestay_remember', formData.email);

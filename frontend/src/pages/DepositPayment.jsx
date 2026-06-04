@@ -1,54 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiCheck, FiX, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
-import DataTable from '../components/ui/DataTable';
-import Modal from '../components/ui/Modal';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
 import { getDeposits, confirmDeposit } from '../services/depositService';
 import { formatCurrency, formatDateTime, depositStatusConfig } from '../utils/formatters';
-
-const PAYMENT_METHODS = [
-  { value: 'TIEN_MAT', label: 'Tiền mặt' },
-  { value: 'CHUYEN_KHOAN', label: 'Chuyển khoản ngân hàng' },
-  { value: 'THE', label: 'Thẻ ngân hàng' },
-];
 
 export default function DepositPayment() {
   const navigate = useNavigate();
   const [deposits, setDeposits] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ tinhTrang: 'PENDING_PAYMENT', search: '' });
   const [selected, setSelected] = useState(null);
-  const [confirmForm, setConfirmForm] = useState({ phuongThuc: 'TIEN_MAT', ngayThanhToan: new Date().toISOString().split('T')[0], maSoChungTu: '', ghiChu: '' });
+  const [confirmForm, setConfirmForm] = useState({
+    phuongThuc: 'TIEN_MAT',
+    ngayThanhToan: new Date().toISOString().split('T')[0],
+    maSoChungTu: '',
+    ghiChu: '',
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchDeposits = async () => {
     setLoading(true);
     try {
-      const res = await getDeposits(filters);
-      // api.js interceptor returns response.data directly,
-      // so res = { success, message, data: [...] }
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const res = await getDeposits({});
+      // Debug: log response
+      console.log('Deposit API response:', res);
+      // Lấy mảng deposits từ res.data hoặc res nếu là mảng trực tiếp
+      let list = [];
+      if (Array.isArray(res)) {
+        list = res;
+      } else if (res?.data && Array.isArray(res.data)) {
+        list = res.data;
+      } else if (res?.deposits && Array.isArray(res.deposits)) {
+        list = res.deposits;
+      }
       setDeposits(list);
     } catch (err) {
+      console.error('Fetch deposits error:', err);
       toast.error(err?.message || 'Không thể tải danh sách đặt cọc');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchDeposits(); }, [filters.tinhTrang]);
+  useEffect(() => {
+    fetchDeposits();
+  }, []);
 
   const handleConfirm = async () => {
     if (!selected) return;
     setSubmitting(true);
     try {
       await confirmDeposit(selected.MaCoc, confirmForm);
-      toast.success('✅ Xác nhận thanh toán cọc thành công! Phòng đã chuyển sang RESERVED.');
+      toast.success('✅ Xác nhận thanh toán cọc thành công!');
       setSelected(null);
       fetchDeposits();
     } catch (err) {
@@ -58,30 +65,19 @@ export default function DepositPayment() {
     }
   };
 
-  const columns = [
-    { key: 'MaCoc', title: 'Mã cọc', width: 120 },
-    { key: 'khachHang', title: 'Khách hàng', render: (row) => row.khachHang?.HoTen || '—' },
-    { key: 'phong', title: 'Phòng', render: (row) => row.phong?.MaPhong || row.giuong?.MaGiuong || '—' },
-    { key: 'SoTienCoc', title: 'Số tiền cọc', render: (row) => <strong style={{ color: '#0A58CA' }}>{formatCurrency(row.SoTienCoc)}</strong> },
-    { key: 'NgayDatCoc', title: 'Ngày đặt', render: (row) => formatDateTime(row.NgayDatCoc) },
-    { key: 'ThoiGianHetHan', title: 'Hạn thanh toán', render: (row) => {
-      const expired = new Date(row.ThoiGianHetHan) < new Date();
-      return <span style={{ color: expired ? '#DC3545' : '#212529' }}>{formatDateTime(row.ThoiGianHetHan)}{expired && ' ⚠️'}</span>;
-    }},
-    { key: 'TinhTrang', title: 'Trạng thái', render: (row) => {
-      const cfg = depositStatusConfig[row.TinhTrang] || { label: row.TinhTrang, color: 'secondary' };
-      return <Badge variant={cfg.color}>{cfg.label}</Badge>;
-    }},
-    { key: 'actions', title: 'Thao tác', render: (row) => {
-      if (row.TinhTrang === 'PENDING_PAYMENT') {
-        return <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={(e) => { e.stopPropagation(); setSelected(row); }}>✓ Xác nhận</button>;
-      }
-      if (row.TinhTrang === 'APPROVED') {
-        return <span className="badge badge-available">Đã thanh toán</span>;
-      }
-      return <span style={{ color: '#999', fontSize: 12 }}>—</span>;
-    }},
-  ];
+  if (loading) {
+    return (
+      <div className="app-layout">
+        <Sidebar />
+        <div className="app-content">
+          <Topbar title="Quản lý đặt cọc" />
+          <main className="main-content">
+            <div style={{ textAlign: 'center', padding: 40 }}>Đang tải...</div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-layout">
@@ -91,46 +87,66 @@ export default function DepositPayment() {
         <main className="main-content">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Danh sách đặt cọc</h1>
-          </div>
-
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div className="form-group" style={{ flex: '2', minWidth: 200 }}>
-                <label className="form-label">Tìm kiếm</label>
-                <input className="form-control" placeholder="Tên khách, mã cọc..." value={filters.search}
-                  onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} />
-              </div>
-              <div className="form-group" style={{ flex: '1', minWidth: 160 }}>
-                <label className="form-label">Trạng thái</label>
-                <select className="form-control" value={filters.tinhTrang}
-                  onChange={e => setFilters(f => ({ ...f, tinhTrang: e.target.value }))}>
-                  <option value="ALL">Tất cả</option>
-                  <option value="PENDING_PAYMENT">Chờ thanh toán</option>
-                  <option value="APPROVED">Đã thanh toán</option>
-                  <option value="EXPIRED">Quá hạn</option>
-                  <option value="CANCELLED">Đã hủy</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="primary" onClick={fetchDeposits}>Lọc</Button>
-                <Button variant="outline" onClick={() => setFilters({ tinhTrang: 'PENDING_PAYMENT', search: '' })}>Reset</Button>
-              </div>
-            </div>
+            <Button variant="outline" onClick={fetchDeposits} size="sm">Làm mới</Button>
           </div>
 
           <div className="card">
-            <DataTable columns={columns} data={deposits} loading={loading}
-              emptyText="Không có đặt cọc nào" />
+            {deposits.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>Không có dữ liệu đặt cọc</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #e9ecef' }}>
+                    <tr>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Mã cọc</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Khách hàng</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Phòng</th>
+                      <th style={{ padding: '12px', textAlign: 'right' }}>Số tiền</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Ngày đặt</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Hạn thanh toán</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Trạng thái</th>
+                      <th style={{ padding: '12px', textAlign: 'center' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deposits.map((row, idx) => {
+                      if (!row) return null;
+                      console.log('MaCoc:', row.MaCoc, 'ThoiGianHetHan:', row.ThoiGianHetHan);
+                      const cfg = depositStatusConfig[row.TinhTrang] || { label: row.TinhTrang, color: 'secondary' };
+                      // So sánh dựa trên chuỗi ngày (YYYY-MM-DD)
+                       const expired = row.ThoiGianHetHan ? row.ThoiGianHetHan.slice(0,10) < new Date().toISOString().slice(0,10) : false;
+                      return (
+                        <tr key={row.MaCoc || idx} style={{ borderBottom: '1px solid #f1f3f5' }}>
+                          <td style={{ padding: '12px' }}>{row.MaCoc || '—'}</td>
+                          <td style={{ padding: '12px' }}>{row.khachHang?.HoTen || '—'}</td>
+                          <td style={{ padding: '12px' }}>{row.phong?.MaPhong || row.giuong?.MaGiuong || '—'}</td>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>{formatCurrency(row.SoTienCoc)}</td>
+                          <td style={{ padding: '12px' }}>{formatDateTime(row.NgayDatCoc)}</td>
+                          <td style={{ padding: '12px', color: expired ? '#DC3545' : 'inherit' }}>{formatDateTime(row.ThoiGianHetHan)}</td>
+                          <td style={{ padding: '12px' }}><Badge variant={cfg.color}>{cfg.label}</Badge></td>
+                          <td style={{ padding: '12px', textAlign: 'center' }}>
+                            {row.TinhTrang === 'PENDING_PAYMENT' && (
+                              <Button variant="primary" size="sm" onClick={() => setSelected(row)}>Xác nhận</Button>
+                            )}
+                            {row.TinhTrang === 'APPROVED' && <Badge variant="available">Đã thanh toán</Badge>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {/* Confirm Payment Modal */}
-          <Modal isOpen={!!selected} onClose={() => setSelected(null)} title="✅ Xác nhận thanh toán cọc" size="md"
+          <Modal isOpen={!!selected} onClose={() => setSelected(null)} title="Xác nhận thanh toán cọc" size="md"
             footer={
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <Button variant="outline" onClick={() => setSelected(null)}>Hủy</Button>
-                <Button variant="primary" loading={submitting} onClick={handleConfirm}>Xác nhận & Lập hóa đơn</Button>
+                <Button variant="primary" loading={submitting} onClick={handleConfirm}>Xác nhận</Button>
               </div>
-            }>
+            }
+          >
             {selected && (
               <div>
                 <div style={{ background: '#F8F9FA', borderRadius: 8, padding: 16, marginBottom: 16 }}>
@@ -138,37 +154,31 @@ export default function DepositPayment() {
                     <div><span style={{ color: '#6C757D' }}>Mã cọc:</span> <strong>{selected.MaCoc}</strong></div>
                     <div><span style={{ color: '#6C757D' }}>Phòng:</span> <strong>{selected.phong?.MaPhong || '—'}</strong></div>
                     <div><span style={{ color: '#6C757D' }}>Khách hàng:</span> <strong>{selected.khachHang?.HoTen}</strong></div>
-                    <div><span style={{ color: '#6C757D' }}>Số tiền cọc:</span> <strong style={{ color: '#0A58CA' }}>{formatCurrency(selected.SoTienCoc)}</strong></div>
+                    <div><span style={{ color: '#6C757D' }}>Số tiền cọc:</span> <strong>{formatCurrency(selected.SoTienCoc)}</strong></div>
                   </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Phương thức thanh toán *</label>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {PAYMENT_METHODS.map(m => (
-                      <label key={m.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                        <input type="radio" name="phuongThuc" value={m.value} checked={confirmForm.phuongThuc === m.value}
-                          onChange={() => setConfirmForm(f => ({ ...f, phuongThuc: m.value }))} />
-                        {m.label}
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {['TIEN_MAT', 'CHUYEN_KHOAN', 'THE'].map(m => (
+                      <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input type="radio" name="phuongThuc" value={m} checked={confirmForm.phuongThuc === m} onChange={() => setConfirmForm(f => ({ ...f, phuongThuc: m }))} />
+                        {m === 'TIEN_MAT' ? 'Tiền mặt' : m === 'CHUYEN_KHOAN' ? 'Chuyển khoản' : 'Thẻ'}
                       </label>
                     ))}
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div className="form-group">
-                    <label className="form-label">Ngày thanh toán *</label>
-                    <input type="date" className="form-control" value={confirmForm.ngayThanhToan}
-                      onChange={e => setConfirmForm(f => ({ ...f, ngayThanhToan: e.target.value }))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Số chứng từ</label>
-                    <input className="form-control" placeholder="Tùy chọn..." value={confirmForm.maSoChungTu}
-                      onChange={e => setConfirmForm(f => ({ ...f, maSoChungTu: e.target.value }))} />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Ngày thanh toán *</label>
+                  <input type="date" className="form-control" value={confirmForm.ngayThanhToan} onChange={e => setConfirmForm(f => ({ ...f, ngayThanhToan: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Số chứng từ</label>
+                  <input className="form-control" placeholder="Tùy chọn" value={confirmForm.maSoChungTu} onChange={e => setConfirmForm(f => ({ ...f, maSoChungTu: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Ghi chú</label>
-                  <textarea className="form-control" rows={2} value={confirmForm.ghiChu}
-                    onChange={e => setConfirmForm(f => ({ ...f, ghiChu: e.target.value }))} />
+                  <textarea className="form-control" rows={2} value={confirmForm.ghiChu} onChange={e => setConfirmForm(f => ({ ...f, ghiChu: e.target.value }))} />
                 </div>
               </div>
             )}

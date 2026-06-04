@@ -22,29 +22,38 @@ export default function RoomHandover() {
   const [submitting, setSubmitting] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  // Lấy danh sách hợp đồng ACTIVE
   useEffect(() => {
-    getContracts({ tinhTrang: 'ACTIVE' }).then(r => {
-      const list = r.data?.contracts || [];
-      setContracts(list);
-      if (maHopDong) {
-        const found = list.find(c => c.MaHopDong === maHopDong);
-        if (found) setSelectedContract(found);
-      }
-    });
-  }, []);
+    getContracts({ tinhTrang: 'ACTIVE' })
+      .then(r => {
+        // Cấu trúc: { success: true, data: { contracts: [...] } }
+        const list = r?.data?.contracts || [];
+        setContracts(list);
+        if (maHopDong) {
+          const found = list.find(c => c.MaHopDong === maHopDong);
+          if (found) setSelectedContract(found);
+        }
+      })
+      .catch(err => console.error(err));
+  }, [maHopDong]);
 
+  // Khi chọn hợp đồng, lấy biên bản bàn giao nếu có
   useEffect(() => {
     if (!selectedContract) return;
     setLoadingBG(true);
-    getHandover(selectedContract.MaHopDong).then(r => {
-      setBangGiao(r.data);
-      setAssets(r.data?.taiSans?.map(ts => ({
-        ...ts,
-        soLuong: ts.BangGiaoTaiSan?.SoLuong || 1,
-        tinhTrang: ts.BangGiaoTaiSan?.TinhTrangLucGiao || 'Tốt',
-        daKiemTra: ts.BangGiaoTaiSan?.DaKiemTra || false,
-      })) || []);
-    }).catch(() => setBangGiao(null))
+    getHandover(selectedContract.MaHopDong)
+      .then(r => {
+        // r = { success: true, data: { ... } }
+        const handover = r?.data;
+        setBangGiao(handover);
+        setAssets(handover?.taiSans?.map(ts => ({
+          ...ts,
+          soLuong: ts.BangGiaoTaiSan?.SoLuong || 1,
+          tinhTrang: ts.BangGiaoTaiSan?.TinhTrangLucGiao || 'Tốt',
+          daKiemTra: ts.BangGiaoTaiSan?.DaKiemTra || false,
+        })) || []);
+      })
+      .catch(() => setBangGiao(null))
       .finally(() => setLoadingBG(false));
   }, [selectedContract]);
 
@@ -52,12 +61,20 @@ export default function RoomHandover() {
     setCreating(true);
     try {
       const res = await createHandover(selectedContract.MaHopDong);
-      const bg = res.data;
-      setBangGiao(bg);
-      setAssets(bg?.taiSans?.map(ts => ({ ...ts, soLuong: ts.BangGiaoTaiSan?.SoLuong || 1, tinhTrang: ts.BangGiaoTaiSan?.TinhTrangLucGiao || 'Tốt', daKiemTra: false })) || []);
+      const handover = res?.data;
+      setBangGiao(handover);
+      setAssets(handover?.taiSans?.map(ts => ({
+        ...ts,
+        soLuong: ts.BangGiaoTaiSan?.SoLuong || 1,
+        tinhTrang: ts.BangGiaoTaiSan?.TinhTrangLucGiao || 'Tốt',
+        daKiemTra: false,
+      })) || []);
       toast.success('Tạo biên bản bàn giao thành công');
-    } catch (err) { toast.error(err?.message || 'Tạo biên bản thất bại'); }
-    finally { setCreating(false); }
+    } catch (err) {
+      toast.error(err?.message || 'Tạo biên bản thất bại');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleAssetChange = async (index, field, value) => {
@@ -70,21 +87,29 @@ export default function RoomHandover() {
           daKiemTra: asset.daKiemTra,
           tinhTrangLucGiao: asset.tinhTrang,
         });
-      } catch { toast.error('Cập nhật tài sản thất bại'); }
+      } catch {
+        toast.error('Cập nhật tài sản thất bại');
+      }
     }
   };
 
   const handleConfirm = async () => {
     if (!bangGiao) return;
     const unchecked = assets.filter(a => !a.daKiemTra);
-    if (unchecked.length > 0) { toast.error(`Còn ${unchecked.length} tài sản chưa kiểm tra`); return; }
+    if (unchecked.length > 0) {
+      toast.error(`Còn ${unchecked.length} tài sản chưa kiểm tra`);
+      return;
+    }
     setSubmitting(true);
     try {
       await confirmHandover(bangGiao.MaBanGiao);
       toast.success('✅ Xác nhận bàn giao thành công! Phòng đã chuyển sang OCCUPIED.');
       navigate('/dashboard');
-    } catch (err) { toast.error(err?.message || 'Xác nhận thất bại'); }
-    finally { setSubmitting(false); }
+    } catch (err) {
+      toast.error(err?.message || 'Xác nhận thất bại');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const checkedCount = assets.filter(a => a.daKiemTra).length;
@@ -103,8 +128,14 @@ export default function RoomHandover() {
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Chọn hợp đồng cần bàn giao</label>
-              <select className="form-control" value={selectedContract?.MaHopDong || ''}
-                onChange={e => { const c = contracts.find(c => c.MaHopDong === e.target.value); setSelectedContract(c || null); }}>
+              <select
+                className="form-control"
+                value={selectedContract?.MaHopDong || ''}
+                onChange={e => {
+                  const c = contracts.find(c => c.MaHopDong === e.target.value);
+                  setSelectedContract(c || null);
+                }}
+              >
                 <option value="">-- Chọn hợp đồng --</option>
                 {contracts.map(c => (
                   <option key={c.MaHopDong} value={c.MaHopDong}>
@@ -141,7 +172,6 @@ export default function RoomHandover() {
                       </Badge>
                     </div>
                   </div>
-
                   {!isContractActive && (
                     <div style={{ background: '#FFF2F2', border: '1px solid #DC3545', borderRadius: 8, padding: 12, marginTop: 12, fontSize: 13, color: '#DC3545' }}>
                       <FiAlertTriangle style={{ marginRight: 6 }} />
@@ -168,12 +198,23 @@ export default function RoomHandover() {
                       <FiPlus size={16} style={{ marginRight: 6 }} /> Tạo biên bản bàn giao
                     </Button>
                   )}
-                  <Button variant="primary" fullWidth loading={submitting}
-                    disabled={!bangGiao || !allChecked || !isContractActive}
-                    onClick={handleConfirm}
-                    title={!allChecked ? 'Cần hoàn tất kiểm tra tài sản' : ''}>
-                    <FiCheck size={16} style={{ marginRight: 6 }} /> Xác nhận bàn giao
-                  </Button>
+                  {bangGiao?.TinhTrang !== 'COMPLETED' && (
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      loading={submitting}
+                      disabled={!bangGiao || !allChecked || !isContractActive}
+                      onClick={handleConfirm}
+                      title={!allChecked ? 'Cần hoàn tất kiểm tra tài sản' : ''}
+                    >
+                      <FiCheck size={16} style={{ marginRight: 6 }} /> Xác nhận bàn giao
+                    </Button>
+                  )}
+                  {bangGiao?.TinhTrang === 'COMPLETED' && (
+                    <div style={{ background: '#F0FFF4', border: '1px solid #198754', borderRadius: 8, padding: '10px 14px', textAlign: 'center', color: '#198754', fontWeight: 600, fontSize: 14 }}>
+                      ✅ Bàn giao đã hoàn thành
+                    </div>
+                  )}
                   <button className="btn btn-outline" disabled style={{ fontSize: 13 }}>📥 Tải hợp đồng</button>
                 </div>
               </div>
@@ -184,7 +225,6 @@ export default function RoomHandover() {
                   <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Biên bản bàn giao tài sản</h3>
                   <span style={{ fontSize: 13, color: '#6C757D' }}>Đã kiểm tra: {checkedCount}/{assets.length}</span>
                 </div>
-
                 {loadingBG ? (
                   <div className="skeleton" style={{ height: 200 }} />
                 ) : assets.length === 0 ? (
@@ -207,25 +247,30 @@ export default function RoomHandover() {
                           <td>{asset.TenTaiSan}</td>
                           <td>{asset.soLuong}</td>
                           <td>
-                            <select className="form-control" style={{ padding: '4px 8px', fontSize: 13 }}
+                            <select
+                              className="form-control"
+                              style={{ padding: '4px 8px', fontSize: 13 }}
                               value={asset.tinhTrang}
-                              onChange={e => handleAssetChange(i, 'tinhTrang', e.target.value)}>
+                              onChange={e => handleAssetChange(i, 'tinhTrang', e.target.value)}
+                            >
                               <option value="Mới">Mới</option>
                               <option value="Tốt">Tốt</option>
                               <option value="Hư hỏng">Hư hỏng</option>
                             </select>
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <input type="checkbox" checked={asset.daKiemTra}
+                            <input
+                              type="checkbox"
+                              checked={asset.daKiemTra}
                               onChange={e => handleAssetChange(i, 'daKiemTra', e.target.checked)}
-                              style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#198754' }} />
+                              style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#198754' }}
+                            />
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 )}
-
                 {allChecked && (
                   <div style={{ background: '#F0FFF4', border: '1px solid #198754', borderRadius: 8, padding: 12, marginTop: 12, textAlign: 'center', color: '#198754', fontSize: 14, fontWeight: 600 }}>
                     ✅ Tất cả tài sản đã được kiểm tra. Sẵn sàng xác nhận bàn giao!

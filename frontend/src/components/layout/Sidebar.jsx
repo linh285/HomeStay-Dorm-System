@@ -51,7 +51,7 @@ const menuItems = [
   },
   {
     label: 'Hóa đơn',
-    path: '/invoices',
+    path: '/invoices/new',
     icon: FiCreditCard,
     roles: ['ACCOUNTANT', 'MANAGER', 'ADMIN'],
     matchPaths: ['/invoices'],

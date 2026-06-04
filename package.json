@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.6.5"
+  }
+}

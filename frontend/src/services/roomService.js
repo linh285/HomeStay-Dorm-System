@@ -7,3 +7,4 @@ export const createRoom = (data) => api.post('/rooms', data);
 export const updateRoom = (maPhong, data) => api.put(`/rooms/${maPhong}`, data);
 export const deleteRoom = (maPhong) => api.delete(`/rooms/${maPhong}`);
 export const getRoomBeds = (maPhong) => api.get(`/rooms/${maPhong}/beds`);
+export const updateBedStatus = (maGiuong, tinhTrang) => api.patch(`/rooms/beds/${maGiuong}/status`, { tinhTrang });

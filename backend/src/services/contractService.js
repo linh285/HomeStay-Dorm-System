@@ -14,10 +14,11 @@ const createContract = async (data) => {
     noiQuy, maNVPhuTrach, chiTietThue = []
   } = data;
 
-  // Generate contract ID
-  const count = await HopDongThueNha.count();
-  const maHopDong = `HD-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
-
+  // Sinh mã hợp đồng an toàn (dùng timestamp + random)
+  const shortTimestamp = Date.now().toString().slice(-8); // 8 số cuối của timestamp
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  const maHopDong = `HD-${shortTimestamp}${random}`;
+  // Ví dụ: HD-12345678123 (14 ký tự)
   const t = await sequelize.transaction();
   try {
     const hopDong = await HopDongThueNha.create({
@@ -33,30 +34,36 @@ const createContract = async (data) => {
       MaNVPhuTrach: maNVPhuTrach || null,
     }, { transaction: t });
 
-    // Create ChiTietThue for each bed/member
-    for (const ct of chiTietThue) {
-      await ChiTietThue.create({
-        MaHopDong: maHopDong,
-        MaGiuong: ct.maGiuong || null,
-        MaKH: ct.maKH || null,
-        GiaThueThucTe: ct.giaThueThucTe || giaThue,
-      }, { transaction: t });
+    // Nếu có chi tiết thuê giường (thuê giường lẻ)
+    if (chiTietThue.length > 0) {
+      for (const ct of chiTietThue) {
+        await ChiTietThue.create({
+          MaHopDong: maHopDong,
+          MaGiuong: ct.maGiuong || null,
+          MaKH: ct.maKH || null,
+          GiaThueThucTe: ct.giaThueThucTe || giaThue,
+        }, { transaction: t });
 
-      // Update bed status to RESERVED
-      if (ct.maGiuong) {
+        if (ct.maGiuong) {
+          await Giuong.update({ TinhTrang: 'RESERVED' }, { where: { MaGiuong: ct.maGiuong }, transaction: t });
+        }
+      }
+    } else {
+      // Thuê nguyên phòng: cập nhật phòng và tất cả giường thành RESERVED
+      if (maPhong) {
+        await Phong.update(
+          { TinhTrang: 'RESERVED' },
+          { where: { MaPhong: maPhong }, transaction: t }
+        );
         await Giuong.update(
           { TinhTrang: 'RESERVED' },
-          { where: { MaGiuong: ct.maGiuong }, transaction: t }
+          { where: { MaPhong: maPhong }, transaction: t }
         );
       }
     }
 
-    // Update nhom if group contract
     if (maNhom) {
-      await Nhom.update(
-        { MaHopDong: maHopDong },
-        { where: { MaNhom: maNhom }, transaction: t }
-      );
+      await Nhom.update({ MaHopDong: maHopDong }, { where: { MaNhom: maNhom }, transaction: t });
     }
 
     await t.commit();
@@ -200,6 +207,11 @@ const findContractBySearch = async (keyword) => {
 };
 
 module.exports = {
-  createContract, getContractById, getAllContracts,
-  activateContract, terminateContract, screenMembers, findContractBySearch
+  createContract,
+  getContractById,
+  getAllContracts,
+  activateContract,
+  terminateContract,
+  screenMembers,
+  findContractBySearch
 };
