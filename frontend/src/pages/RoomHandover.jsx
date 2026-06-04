@@ -254,7 +254,15 @@ export default function RoomHandover() {
                     {!isContractActive && (
                       <div style={{ background: '#FFF2F2', border: '1px solid #DC3545', borderRadius: 8, padding: 12, marginTop: 12, fontSize: 13, color: '#DC3545' }}>
                         <FiAlertTriangle style={{ marginRight: 6 }} />
-                        Hợp đồng chưa được thanh toán tiền thuê kỳ đầu. Không thể bàn giao phòng.
+                        {bangGiao?.TinhTrang === 'COMPLETED' ? (
+                          <>
+                            <strong>⚠️ Hợp đồng hiện không còn hiệu lực (chưa thanh toán kỳ đầu).</strong><br />
+                            Tuy nhiên, biên bản bàn giao phòng đã được hoàn tất trước đó vào ngày {formatDate(bangGiao.NgayGiao)}.
+                            Vui lòng kiểm tra lại trạng thái hợp đồng trên hệ thống.
+                          </>
+                        ) : (
+                          'Hợp đồng chưa được thanh toán tiền thuê kỳ đầu. Không thể bàn giao phòng.'
+                        )}
                       </div>
                     )}
                     <Button variant="outline" size="sm" onClick={() => setSelectedContract(null)} style={{ marginTop: 12 }}>
@@ -275,6 +283,11 @@ export default function RoomHandover() {
                       <div style={{ marginTop: 10, fontSize: 13, color: '#6C757D' }}>
                         Đã kiểm tra: {checkedCount}/{assets.length} tài sản
                       </div>
+                      {!isContractActive && bangGiao.TinhTrang === 'COMPLETED' && (
+                        <div style={{ marginTop: 10, fontSize: 12, color: '#DC3545', fontStyle: 'italic' }}>
+                          * Hợp đồng hiện không còn hiệu lực, bàn giao này chỉ mang tính lịch sử.
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
