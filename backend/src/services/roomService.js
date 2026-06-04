@@ -10,7 +10,12 @@ const generateBedCode = (maPhong, index) => {
   const roomPart = maPhong.replace(/[^0-9]/g, ''); // extract digits
   return `G${roomPart}${suffix}`;
 };
-
+const getLoaiPhong = (sucChua) => {
+  if (sucChua === 1) return 'Phòng đơn';
+  if (sucChua === 2) return 'Phòng đôi';
+  if (sucChua <= 4) return 'Phòng tập thể nhỏ';
+  return 'Phòng tập thể lớn';
+};
 /**
  * Get all rooms with optional filters
  * Filters: TinhTrang, KhuVuc, Tang, MaChiNhanh, search by MaPhong
@@ -35,7 +40,14 @@ const getAllRooms = async (filters = {}) => {
     order: [['MaPhong', 'ASC']],
   });
 
-  return rooms;
+  // Thêm trường LoaiPhong dựa trên SucChua
+  const roomsWithType = rooms.map(room => {
+    const plain = room.toJSON();
+    plain.LoaiPhong = getLoaiPhong(plain.SucChua);
+    return plain;
+  });
+
+  return roomsWithType;
 };
 
 /**
@@ -49,8 +61,10 @@ const getRoomById = async (maPhong) => {
     ],
   });
   if (!phong) throw { statusCode: 404, message: `Phòng ${maPhong} không tồn tại` };
-  return phong;
-};
+  const plain = phong.toJSON();
+  plain.LoaiPhong = getLoaiPhong(plain.SucChua);
+  return plain;
+  };
 
 /**
  * Create a new room and auto-generate beds based on SucChua
@@ -190,8 +204,13 @@ const getAvailableRooms = async (criteria = {}) => {
     ],
     order: [['GiaThue', 'ASC']],
   });
+  const roomsWithType = rooms.map(room => {
+  const plain = room.toJSON();
+  plain.LoaiPhong = getLoaiPhong(plain.SucChua);
+    return plain;
+  });
+  return roomsWithType;
 
-  return rooms;
 };
 
 module.exports = {

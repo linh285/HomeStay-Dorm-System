@@ -159,15 +159,23 @@ const RoomInventory = () => {
   const fetchRooms = useCallback(async (params = {}) => {
     setLoading(true);
     try {
-      const res = await roomService.getRooms(params);
-      // res = { success: true, data: [...] }
+      // Tách riêng search để không gửi lên backend
+      const { search, ...backendParams } = params;
+      const res = await roomService.getRooms(backendParams);
       const raw = Array.isArray(res?.data) ? res.data : [];
-      // Backend returns PascalCase; normalize to camelCase for render
+      // Map dữ liệu và thêm loại phòng
       const list = raw.map((r) => ({
         maPhong:      r.MaPhong     ?? r.maPhong,
         khu:          r.KhuVuc      ?? r.khu,
         tang:         r.Tang        ?? r.tang,
-        loaiPhong:    r.LoaiPhong   ?? r.loaiPhong ?? '—',
+        loaiPhong:    (() => {
+          const sucChua = r.SucChua ?? r.sucChua;
+          if (!sucChua) return '—';
+          if (sucChua === 1) return 'Phòng đơn';
+          if (sucChua === 2) return 'Phòng đôi';
+          if (sucChua <= 4) return 'Phòng tập thể nhỏ';
+          return 'Phòng tập thể lớn';
+        })(),
         sucChua:      r.SucChua     ?? r.sucChua,
         giaThue:      r.GiaThue     ?? r.giaThue,
         trangThai:    r.TinhTrang   ?? r.trangThai,
@@ -176,7 +184,17 @@ const RoomInventory = () => {
           (g.TinhTrang ?? g.tinhTrang) === 'AVAILABLE'
         ).length,
       }));
-      setRooms(list);
+
+      // Lọc theo từ khóa (mã phòng hoặc loại phòng) nếu có
+      let filteredList = list;
+      if (search) {
+        const lowerSearch = search.toLowerCase();
+        filteredList = list.filter(room =>
+          room.maPhong.toLowerCase().includes(lowerSearch) ||
+          room.loaiPhong.toLowerCase().includes(lowerSearch)
+        );
+      }
+      setRooms(filteredList);
     } catch (err) {
       toast.error('Không thể tải danh sách phòng!');
       console.error(err);
