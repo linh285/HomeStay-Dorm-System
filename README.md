@@ -14,61 +14,78 @@ Hệ thống quản lý ký túc xá thông minh HomeStay Dorm – kiến trúc 
 ## 🗂️ Cấu trúc thư mục
 
 ```
-homestay-dorm/
-├── backend/               # Node.js + Express API server
-│   ├── src/
-│   │   ├── config/        # Cấu hình database
-│   │   ├── controllers/   # Request/response handlers
-│   │   ├── services/      # Business logic
-│   │   ├── models/        # Sequelize models (21 tables)
-│   │   ├── routes/        # API routes
-│   │   ├── middleware/    # Auth, error handling
-│   │   ├── utils/         # Helpers
-│   │   └── jobs/          # Cron jobs (auto-expire deposits)
-│   ├── .env               # Environment variables
-│   └── server.js          # Entry point
-├── frontend/              # React application
-│   ├── src/
-│   │   ├── components/    # Reusable components (Sidebar, Topbar, Modal, Drawer...)
-│   │   ├── pages/         # 12 screens
-│   │   ├── services/      # API calls via Axios
-│   │   ├── contexts/      # Auth & Notification contexts
-│   │   ├── hooks/         # Custom hooks
-│   │   └── utils/         # Formatters, validators
-│   └── package.json
+HomeStay Dorm System/
+├── backend/ # Node.js + Express API
+│ ├── src/
+│ │ ├── config/ # Cấu hình DB
+│ │ ├── controllers/ # Xử lý request/response
+│ │ ├── services/ # Logic nghiệp vụ
+│ │ ├── models/ # Sequelize models (21 bảng)
+│ │ ├── routes/ # API routes
+│ │ ├── middleware/ # Auth, error handling
+│ │ ├── utils/ # Helpers
+│ │ └── cron/ # Cron job tự động hủy cọc
+│ ├── .env.example # Mẫu file biến môi trường
+│ └── server.js # Entry point
+├── frontend/ # React app
+│ ├── src/
+│ │ ├── components/ # Sidebar, Topbar, Modal, Drawer...
+│ │ ├── pages/ # 12 màn hình chính
+│ │ ├── services/ # Gọi API qua Axios
+│ │ ├── contexts/ # Context (Auth, Notification)
+│ │ ├── hooks/ # Custom hooks
+│ │ └── utils/ # Format, validation
+│ └── package.json
 ├── database/
-│   └── init.sql           # Database schema + seed data
-├── docker-compose.yml     # PostgreSQL container
+│ └── init.sql # Schema + seed data
+├── docker-compose.yml # PostgreSQL container
 └── README.md
-```
+
+
+---
 
 ## 🚀 Hướng dẫn cài đặt
 
 ### Yêu cầu hệ thống
-- Node.js >= 18.x
-- Docker & Docker Compose
-- npm hoặc yarn
+- **Node.js** ≥ 18.x (`node -v`)
+- **Docker** & **Docker Compose** (cài Docker Desktop nếu dùng Windows/Mac)
+- **npm** hoặc **yarn** (đi kèm Node.js)
 
-### Bước 1: Clone và cài đặt
+### Bước 1: Clone repository
 
 ```bash
-# Di chuyển vào thư mục project
+git clone <link-repository-của-nhóm>
 cd "HomeStay Dorm System"
-```
 
-### Bước 2: Khởi động Database
+### Bước 2: Tạo file .env cho Backend
+cd backend
+copy .env.example .env          # Windows
+# hoặc
+cp .env.example .env            # Linux / Mac
 
-```bash
-# Chạy PostgreSQL bằng Docker
+Nội dung file .env mặc định (không cần sửa nếu dùng Docker theo hướng dẫn):
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=homestay_dorm
+DB_USER=postgres
+DB_PASSWORD=postgres123
+JWT_SECRET=homestay_dorm_super_secret_jwt_key_2025
+PORT=5000
+FRONTEND_URL=http://localhost:5173
+
+### Bước 3: Khởi động Database bằng Docker
+1. Quay lại thư mục gốc:
+cd ..
 docker-compose up -d
 
-# Kiểm tra database đã chạy
+2. Kiểm tra:
 docker-compose ps
-```
+# hoặc
+docker ps --filter "name=homestay_db"
 
 Database sẽ tự động chạy file `database/init.sql` để tạo bảng và seed data.
 
-### Bước 3: Cài đặt và chạy Backend
+### Bước 4: Cài đặt và chạy Backend
 
 ```bash
 cd backend
@@ -81,8 +98,9 @@ npm run dev
 ```
 
 Backend sẽ chạy tại: **http://localhost:5000**
+Thử: http://localhost:5000/health → thấy { status: "OK" }.
 
-### Bước 4: Cài đặt và chạy Frontend
+### Bước 5: Cài đặt và chạy Frontend
 
 ```bash
 cd frontend
@@ -108,6 +126,52 @@ Frontend sẽ chạy tại: **http://localhost:5173**
 | Kế toán | accountant@homestay.com | 123456 |
 
 ---
+
+
+## ⚠️ Lưu ý khi chạy lần đầu
+- Lần đầu, database mất ~10‑15 giây để khởi tạo. Đợi log database system is ready to accept connections.
+- Nếu backend báo lỗi kết nối DB, kiểm tra Docker (docker ps). Restart container: docker-compose restart.
+- Khi tắt máy, cần chạy lại docker-compose up -d trước khi start backend.
+- Reset toàn bộ dữ liệu (xoá sạch DB):
+docker-compose down -v
+docker-compose up -d
+
+## Quy trình nghiệp vụ chính
+Đăng ký thuê → Chọn phòng → Đặt lịch xem
+→ Tạo yêu cầu cọc (24h) → Xác nhận cọc → Phòng RESERVED
+→ Rà soát khách → Lập hợp đồng (PENDING_FIRST_PAYMENT)
+→ Kế toán thu tiền kỳ đầu → Hợp đồng ACTIVE
+→ Bàn giao phòng + tài sản → Phòng OCCUPIED
+→ [Sử dụng dịch vụ]
+→ Yêu cầu trả phòng → Kiểm tra, khấu trừ → Quyết toán
+→ Hoàn cọc / thu thêm → Lập hóa đơn → Phòng AVAILABLE
+
+## Quy tắc tính tiền cọc & hoàn cọc
+Loại	                Công thức
+Tiền cọc	            (Giá thuê/tháng × 2) × Số giường thuê
+Hoàn cọc	            Xem bảng dưới
+Trường hợp	            Tỷ lệ hoàn
+Chưa ký hợp đồng	    80%
+Đã ký HĐ, ở < 6 tháng	50%
+Đã ký HĐ, ở ≥ 6 tháng	70%
+HĐ đã hết hạn tự nhiên	100%
+
+## Cron job tự động hủy cọc quá hạn
+Lịch chạy: mỗi phút 0
+Chức năng: Cọc PENDING_PAYMENT quá 24h → EXPIRED, phòng trở về AVAILABLE
+File cấu hình: backend/src/cron/expireDeposits.js
+
+## Design System (tham khảo)
+Token	Giá trị
+Màu chính	#0A58CA
+Thành công	#198754
+Cảnh báo	#FAAD14
+Nguy hiểm	#DC3545
+Chữ chính	#212529
+Nền     	#F8F9FA
+Font	    Inter
+Bo góc card	 8px
+Bo góc input 4px
 
 ## 📡 API Endpoints
 
@@ -157,75 +221,4 @@ Frontend sẽ chạy tại: **http://localhost:5173**
 
 ---
 
-## 🔄 Quy trình nghiệp vụ
-
-```
-Đăng ký thuê
-    ↓
-Chọn phòng phù hợp
-    ↓
-Đặt lịch xem phòng
-    ↓
-Tạo yêu cầu đặt cọc (tự hủy sau 24h nếu không thanh toán)
-    ↓
-Kế toán xác nhận cọc → Phòng RESERVED
-    ↓
-Rà soát khách thuê → Lập hợp đồng → PENDING_FIRST_PAYMENT
-    ↓
-Kế toán thu tiền thuê kỳ đầu → Hợp đồng ACTIVE
-    ↓
-Bàn giao phòng + biên bản tài sản → Phòng OCCUPIED
-    ↓
-[Sử dụng dịch vụ trong thời gian thuê]
-    ↓
-Ghi nhận yêu cầu trả phòng
-    ↓
-Kiểm tra hiện trạng, ghi nhận hư hại
-    ↓
-Tính toán khấu trừ + tỷ lệ hoàn cọc
-    ↓
-Xác nhận thanh toán chênh lệch / hoàn cọc
-    ↓
-Lập hóa đơn → Phòng AVAILABLE
-```
-
-## 📐 Quy tắc tính tiền cọc
-
-```
-Tiền cọc = (Giá thuê/tháng × 2) × Số giường thuê
-```
-
-## 📊 Quy tắc hoàn cọc
-
-| Trường hợp | Tỷ lệ hoàn |
-|-----------|-----------|
-| Chưa ký hợp đồng | 80% |
-| Đã ký HĐ, ở < 6 tháng | 50% |
-| Đã ký HĐ, ở ≥ 6 tháng | 70% |
-| HĐ đã hết hạn tự nhiên | 100% |
-
-## ⚙️ Cron Jobs
-
-- **Mỗi giờ**: Kiểm tra đặt cọc quá 24h chưa thanh toán → tự động hủy, trả phòng về AVAILABLE
-
-## 🎨 Design System
-
-| Token | Giá trị |
-|-------|---------|
-| Primary Color | `#0A58CA` |
-| Success | `#198754` |
-| Warning | `#FAAD14` |
-| Danger | `#DC3545` |
-| Text | `#212529` |
-| Background | `#F8F9FA` |
-| Font | Inter |
-| Border Radius (card) | `8px` |
-| Border Radius (input) | `4px` |
-
-## 🔧 Environment Variables
-
-Xem file `.env.example` trong thư mục `backend/` để biết các biến môi trường cần thiết.
-
----
-
-*Được phát triển bởi nhóm HomeStay Dorm · HCMUS · 2025-2026*
+*Được phát triển bởi linh le HomeStay Dorm · HCMUS · 2025-2026*
