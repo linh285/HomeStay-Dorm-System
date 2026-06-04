@@ -2,10 +2,6 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-/**
- * PrivateRoute — guards routes behind authentication.
- * Works as an Outlet wrapper for nested routes in React Router v6.
- */
 const PrivateRoute = ({ roles }) => {
   const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
@@ -23,7 +19,10 @@ const PrivateRoute = ({ roles }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (roles && user && !roles.includes(user.chucVu)) {
+  // Kiểm tra role (chuyển user.chucVu về chữ hoa để so sánh an toàn)
+  const userRole = user?.chucVu?.toUpperCase();
+  if (roles && userRole && !roles.includes(userRole)) {
+    console.warn(`⚠️ Truy cập bị từ chối: user role = "${userRole}", yêu cầu roles =`, roles);
     return <Navigate to="/dashboard" replace />;
   }
 

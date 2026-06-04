@@ -27,7 +27,7 @@ const createDeposit = async (req, res, next) => {
       // Fields from BookingWorkspace (new customer info)
       hoTenKhach, sdt, email,
       // If MaKH already known (direct API call)
-      MaKH,
+      MaKH, maLich,
       soTienCoc, tienCoc, phuongThucThanhToan, ghiChu,
     } = req.body;
 
@@ -63,6 +63,7 @@ const createDeposit = async (req, res, next) => {
       SoTienCoc: soTienCoc || tienCoc || null,
       PhuongThucThanhToan: phuongThucThanhToan || 'TIEN_MAT',
       GhiChu: ghiChu || null,
+      maLich,
     });
     return successResponse(res, result, 'Tạo đặt cọc thành công', 201);
   } catch (e) { next(e); }

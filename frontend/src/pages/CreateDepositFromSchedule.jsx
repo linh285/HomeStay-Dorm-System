@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import {
-  FiCalendar, FiDollarSign, FiSearch, FiRefreshCw, FiCheck, FiChevronLeft, FiChevronRight
-} from 'react-icons/fi';
+import { FiCalendar, FiDollarSign, FiSearch, FiRefreshCw, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
 import Button from '../components/ui/Button';
@@ -12,9 +10,15 @@ import Badge from '../components/ui/Badge';
 import DataTable from '../components/ui/DataTable';
 import * as lichXemService from '../services/lichXemService';
 import * as depositService from '../services/depositService';
+import * as roomService from '../services/roomService';
 import { formatDate, formatCurrency } from '../utils/formatters';
 
-const toDateStr = (d) => d.toISOString().split('T')[0];
+const toDateStr = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function CreateDepositFromSchedule() {
   const navigate = useNavigate();
@@ -23,15 +27,9 @@ export default function CreateDepositFromSchedule() {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [creating, setCreating] = useState(false);
 
-  // Bộ lọc
   const today = new Date();
-  const [filterMode, setFilterMode] = useState('day'); // day, week, month
+  const [filterMode, setFilterMode] = useState('day');
   const [filterDate, setFilterDate] = useState(toDateStr(today));
-  const [filterWeekStart, setFilterWeekStart] = useState(() => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-    return toDateStr(d);
-  });
   const [filterMonth, setFilterMonth] = useState(today.getMonth() + 1);
   const [filterYear, setFilterYear] = useState(today.getFullYear());
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -39,38 +37,62 @@ export default function CreateDepositFromSchedule() {
   const fetchSchedules = async () => {
     setLoading(true);
     try {
-        let params = {};
-        if (filterMode === 'day') {
+      let params = {};
+      if (filterMode === 'day') {
         params.ngay = filterDate;
-        } else if (filterMode === 'week') {
-        // Backend chưa hỗ trợ, chuyển sang dùng month tạm hoặc bỏ. Ở đây bỏ week.
-        toast.error('Lọc theo tuần chưa được hỗ trợ, vui lòng chọn ngày hoặc tháng');
-        setLoading(false);
-        return;
-        } else if (filterMode === 'month') {
+      } else if (filterMode === 'month') {
         params.thang = filterMonth;
         params.nam = filterYear;
-        }
-        const res = await lichXemService.getLichXem(params);
-        let list = Array.isArray(res) ? res : (res?.data?.schedules || res?.schedules || []);
-        // Lọc theo từ khóa trên frontend (tên khách, mã phòng)
-        if (searchKeyword) {
+      }
+      const res = await lichXemService.getLichXem(params);
+      console.log('📅 Lich xem response:', res);
+      
+      let list = [];
+      if (Array.isArray(res)) list = res;
+      else if (res?.data?.schedules) list = res.data.schedules;
+      else if (res?.schedules) list = res.schedules;
+      else if (Array.isArray(res?.data)) list = res.data;
+      
+      if (searchKeyword) {
         const kw = searchKeyword.toLowerCase();
         list = list.filter(s => 
-            s.khachHang?.HoTen?.toLowerCase().includes(kw) ||
-            s.phong?.MaPhong?.toLowerCase().includes(kw)
+          (s.khachHang?.HoTen?.toLowerCase().includes(kw)) ||
+          (s.phong?.MaPhong?.toLowerCase().includes(kw))
         );
-        }
-        setSchedules(list);
-    } catch (err) {
-        console.error(err);
-        toast.error('Không thể tải danh sách lịch xem');
-    } finally {
-        setLoading(false);
-    }
-    };
+      }
 
-  useEffect(() => { fetchSchedules(); }, [filterMode, filterDate, filterWeekStart, filterMonth, filterYear, searchKeyword]);
+      // Lọc bỏ các lịch có phòng không còn AVAILABLE
+      const roomStatusMap = new Map();
+      const filteredList = [];
+      for (const schedule of list) {
+        const maPhong = schedule.phong?.MaPhong;
+        if (!maPhong) continue;
+        if (!roomStatusMap.has(maPhong)) {
+          try {
+            const roomRes = await roomService.getRoomById(maPhong);
+            const status = roomRes?.data?.TinhTrang;
+            roomStatusMap.set(maPhong, status === 'AVAILABLE');
+          } catch {
+            roomStatusMap.set(maPhong, false);
+          }
+        }
+        if (roomStatusMap.get(maPhong) && schedule.TrangThai !== 'COMPLETED') {
+          filteredList.push(schedule);
+        }
+      }
+      setSchedules(filteredList);
+      if (filteredList.length === 0) toast('Không có lịch xem hợp lệ (phòng trống hoặc đã hoàn thành)', { icon: '🔍' });
+    } catch (err) {
+      console.error(err);
+      toast.error('Không thể tải danh sách lịch xem');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSchedules();
+  }, [filterMode, filterDate, filterMonth, filterYear]);
 
   const handleSelectSchedule = (schedule) => {
     setSelectedSchedule(schedule);
@@ -80,6 +102,16 @@ export default function CreateDepositFromSchedule() {
     if (!selectedSchedule) return;
     setCreating(true);
     try {
+      // Kiểm tra lại trạng thái phòng trước khi tạo (phòng ngừa)
+      const maPhong = selectedSchedule.phong?.MaPhong;
+      if (maPhong) {
+        const roomRes = await roomService.getRoomById(maPhong);
+        if (roomRes?.data?.TinhTrang !== 'AVAILABLE') {
+          toast.error(`Phòng ${maPhong} hiện không còn trống (${roomRes?.data?.TinhTrang}). Không thể tạo cọc.`);
+          setCreating(false);
+          return;
+        }
+      }
       const soGiuong = selectedSchedule.phong?.SucChua || 1;
       const giaThue = selectedSchedule.phong?.GiaThue || 0;
       const tienCoc = giaThue * 2 * soGiuong;
@@ -89,6 +121,7 @@ export default function CreateDepositFromSchedule() {
         soTienCoc: tienCoc,
         phuongThucThanhToan: 'TIEN_MAT',
         ghiChu: `Tạo từ lịch xem ${selectedSchedule.MaLich}`,
+        maLich: selectedSchedule.MaLich,
       });
       toast.success('✅ Tạo đơn đặt cọc thành công!');
       setSelectedSchedule(null);
@@ -118,7 +151,6 @@ export default function CreateDepositFromSchedule() {
         <Topbar title="Tạo đơn đặt cọc từ lịch xem" />
         <main className="main-content">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-            {/* Cột trái: Danh sách lịch xem + bộ lọc */}
             <div className="card">
               <div className="card-header">
                 <h3 className="card-title">📅 Lịch xem phòng</h3>
@@ -127,32 +159,23 @@ export default function CreateDepositFromSchedule() {
                 </button>
               </div>
               <div className="card-body">
-                {/* Bộ lọc */}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
                   <select className="form-control" style={{ width: 110 }} value={filterMode} onChange={e => setFilterMode(e.target.value)}>
                     <option value="day">Theo ngày</option>
-                    {/* <option value="week">Theo tuần</option> */}
                     <option value="month">Theo tháng</option>
                   </select>
                   {filterMode === 'day' && (
                     <>
                       <button className="btn btn-outline" onClick={() => {
-                        const d = new Date(filterDate); d.setDate(d.getDate() - 1); setFilterDate(toDateStr(d));
+                        const d = new Date(filterDate);
+                        d.setDate(d.getDate() - 1);
+                        setFilterDate(toDateStr(d));
                       }}><FiChevronLeft /></button>
                       <input type="date" className="form-control" style={{ width: 145 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} />
                       <button className="btn btn-outline" onClick={() => {
-                        const d = new Date(filterDate); d.setDate(d.getDate() + 1); setFilterDate(toDateStr(d));
-                      }}><FiChevronRight /></button>
-                    </>
-                  )}
-                  {filterMode === 'week' && (
-                    <>
-                      <button className="btn btn-outline" onClick={() => {
-                        const d = new Date(filterWeekStart); d.setDate(d.getDate() - 7); setFilterWeekStart(toDateStr(d));
-                      }}><FiChevronLeft /></button>
-                      <input type="date" className="form-control" style={{ width: 145 }} value={filterWeekStart} onChange={e => setFilterWeekStart(e.target.value)} />
-                      <button className="btn btn-outline" onClick={() => {
-                        const d = new Date(filterWeekStart); d.setDate(d.getDate() + 7); setFilterWeekStart(toDateStr(d));
+                        const d = new Date(filterDate);
+                        d.setDate(d.getDate() + 1);
+                        setFilterDate(toDateStr(d));
                       }}><FiChevronRight /></button>
                     </>
                   )}
@@ -169,12 +192,9 @@ export default function CreateDepositFromSchedule() {
                   <Input placeholder="Tìm theo tên khách, phòng..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} style={{ flex: 1 }} />
                   <Button variant="primary" onClick={fetchSchedules}><FiSearch size={14} /> Tìm</Button>
                 </div>
-
-                <DataTable columns={columns} data={schedules} loading={loading} emptyText="Không có lịch xem" onRowClick={handleSelectSchedule} />
+                <DataTable columns={columns} data={schedules} loading={loading} emptyText="Không có lịch xem hợp lệ" onRowClick={handleSelectSchedule} />
               </div>
             </div>
-
-            {/* Cột phải: Thông tin chi tiết và tạo đơn cọc */}
             <div className="card">
               <div className="card-header">
                 <h3 className="card-title">💰 Tạo đơn đặt cọc</h3>
@@ -198,13 +218,11 @@ export default function CreateDepositFromSchedule() {
                         <div><span style={{ color: '#6C757D' }}>Số giường (sức chứa):</span> {selectedSchedule.phong?.SucChua}</div>
                       </div>
                     </div>
-
                     <div style={{ background: '#F0F7FF', borderRadius: 8, padding: 16, textAlign: 'center', marginBottom: 16 }}>
                       <div style={{ fontSize: 14, color: '#6C757D' }}>Tiền cọc cần thanh toán</div>
                       <div style={{ fontSize: 28, fontWeight: 700, color: '#0A58CA' }}>{formatCurrency(tienCoc)}</div>
                       <div style={{ fontSize: 12, color: '#6C757D' }}>(= giá thuê × 2 × số giường)</div>
                     </div>
-
                     <Button variant="primary" fullWidth loading={creating} onClick={handleCreateDeposit}>
                       <FiDollarSign size={16} style={{ marginRight: 6 }} /> Tạo đơn đặt cọc
                     </Button>

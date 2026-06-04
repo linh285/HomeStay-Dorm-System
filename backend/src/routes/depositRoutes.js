@@ -5,7 +5,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 router.get('/', authenticate, c.getAllDeposits);
 router.get('/:maCoc', authenticate, c.getDepositById);
-router.post('/', authenticate, requireRole('SALE', 'MANAGER', 'ADMIN'), c.createDeposit);
+router.post('/', authenticate, requireRole('SALE', 'MANAGER', 'ADMIN', 'ACCOUNTANT'), c.createDeposit);
 router.put('/:maCoc/confirm', authenticate, requireRole('ACCOUNTANT', 'MANAGER', 'ADMIN'), c.confirmDeposit);
 
 module.exports = router;

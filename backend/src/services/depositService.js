@@ -17,7 +17,7 @@ const calculateDepositAmount = (giaThue, soGiuong = 1) => {
  * Updates Phong/Giuong to PENDING
  */
 const createDepositRequest = async (data) => {
-  const { MaCoc, MaKH, MaPhong, MaGiuong, SoTienCoc, PhuongThucThanhToan, GhiChu } = data;
+  const { MaCoc, MaKH, MaPhong, MaGiuong, SoTienCoc, PhuongThucThanhToan, GhiChu, maLich } = data;
 
   // Validate customer
   const khachHang = await KhachHang.findByPk(MaKH);
@@ -68,6 +68,16 @@ const createDepositRequest = async (data) => {
     // Update bed to PENDING if specified
     if (giuong) {
       await giuong.update({ TinhTrang: 'PENDING' }, { transaction: t });
+    }
+    if (maLich) {
+      const LichXemPhong = require('../models').LichXemPhong;
+      const lich = await LichXemPhong.findByPk(maLich, { transaction: t });
+      if (lich) {
+        await lich.update({
+          TrangThai: 'COMPLETED',
+          KetQua: 'BOOKED'
+        }, { transaction: t });
+      }
     }
 
     await t.commit();
