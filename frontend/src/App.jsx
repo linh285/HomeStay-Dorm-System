@@ -17,6 +17,7 @@ import CheckoutInspection from './pages/CheckoutInspection';
 import FinancialSettlement from './pages/FinancialSettlement';
 import InvoiceGenerator from './pages/InvoiceGenerator';
 import PolicyManagement from './pages/PolicyManagement';
+import CreateDepositFromSchedule from './pages/CreateDepositFromSchedule';
 
 export default function App() {
   return (
@@ -33,20 +34,36 @@ export default function App() {
         />
         <Routes>
           <Route path="/login" element={<Login />} />
+
+          {/* Routes for all authenticated users */}
           <Route element={<PrivateRoute />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/rooms" element={<RoomInventory />} />
-            <Route path="/booking" element={<BookingWorkspace />} />
-            <Route path="/deposits" element={<DepositPayment />} />
-            <Route path="/contracts" element={<ContractCreation />} />
-            <Route path="/handover" element={<RoomHandover />} />
             <Route path="/checkout" element={<CheckoutRequest />} />
             <Route path="/checkout/inspect" element={<CheckoutInspection />} />
             <Route path="/settlement" element={<FinancialSettlement />} />
-            <Route path="/invoices/new" element={<InvoiceGenerator />} />
-            <Route path="/policies" element={<PolicyManagement />} />
           </Route>
+
+          {/* Routes for SALE, MANAGER, ADMIN */}
+          <Route element={<PrivateRoute roles={['SALE', 'MANAGER', 'ADMIN']} />}>
+            <Route path="/booking" element={<BookingWorkspace />} />
+            <Route path="/contracts" element={<ContractCreation />} />
+            <Route path="/handover" element={<RoomHandover />} />
+          </Route>
+
+          {/* Routes for MANAGER, ADMIN, ACCOUNTANT */}
+          <Route element={<PrivateRoute roles={['MANAGER', 'ADMIN', 'ACCOUNTANT']} />}>
+            <Route path="/rooms" element={<RoomInventory />} />
+            <Route path="/policies" element={<PolicyManagement />} />
+            <Route path="/deposits" element={<DepositPayment />} />
+          </Route>
+
+          {/* Routes for ACCOUNTANT, ADMIN */}
+          <Route element={<PrivateRoute roles={['ACCOUNTANT', 'ADMIN']} />}>
+            <Route path="/create-deposit" element={<CreateDepositFromSchedule />} />
+            <Route path="/invoices/new" element={<InvoiceGenerator />} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>

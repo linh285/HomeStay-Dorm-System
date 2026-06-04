@@ -231,6 +231,12 @@ export default function Dashboard() {
               {['MANAGER', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/policies')}>📜 Quy định</button>
               )}
+              {/* Thêm nút mới */}
+              {['SALE', 'MANAGER', 'ADMIN'].includes(user?.chucVu) && (
+                <button className="btn btn-outline" onClick={() => navigate('/create-deposit')}>
+                  💰 Tạo đơn cọc từ lịch xem
+                </button>
+              )}
             </div>
           </div>
         </main>

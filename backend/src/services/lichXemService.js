@@ -29,16 +29,16 @@ const getAll = async (filters = {}) => {
     const end = new Date(nam, thang, 0);
     where.NgayXem = { [Op.between]: [start.toISOString().split('T')[0], end.toISOString().split('T')[0]] };
   }
-  const list = await LichXemPhong.findAll({
+  const schedules = await LichXemPhong.findAll({
     where,
     include: [
-      { model: KhachHang, as: 'khachHang', attributes: ['HoTen', 'SDT'] },
-      { model: Phong, as: 'phong', attributes: ['MaPhong', 'KhuVuc'] },
+      { model: KhachHang, as: 'khachHang', attributes: ['MaKH', 'HoTen', 'SDT'] },
+      { model: Phong, as: 'phong', attributes: ['MaPhong', 'GiaThue', 'SucChua'] },
       { model: NhanVien, as: 'nhanVien', attributes: ['TenNV'] },
     ],
-    order: [['NgayXem', 'ASC'], ['GioXem', 'ASC']],
+    order: [['NgayXem', 'DESC'], ['GioXem', 'DESC']],
   });
-  return list;
+  return schedules;
 };
 
 const getById = async (maLich) => {

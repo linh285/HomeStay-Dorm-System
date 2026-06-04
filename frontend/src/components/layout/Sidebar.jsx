@@ -25,7 +25,7 @@ const menuItems = [
     label: 'Đăng ký & đặt lịch',
     path: '/booking',
     icon: FiCalendar,
-    roles: ['SALE', 'MANAGER'],
+    roles: ['SALE', 'MANAGER', 'ADMIN'],
     matchPaths: ['/booking'],
   },
   {
@@ -39,28 +39,28 @@ const menuItems = [
     label: 'Bàn giao',
     path: '/handover',
     icon: FiKey,
-    roles: ['MANAGER', 'SALE'],
+    roles: ['SALE', 'MANAGER', 'ADMIN'],
     matchPaths: ['/handover'],
   },
   {
     label: 'Trả phòng',
     path: '/checkout',
     icon: FiRotateCcw,
-    roles: ['SALE', 'MANAGER'],
+    roles: ['SALE', 'MANAGER', 'ADMIN'],
     matchPaths: ['/checkout'],
   },
   {
-    label: 'Hóa đơn',
-    path: '/invoices/new',
+    label: 'Tạo đơn cọc từ lịch xem',
+    path: '/create-deposit',
     icon: FiCreditCard,
-    roles: ['ACCOUNTANT', 'MANAGER', 'ADMIN'],
-    matchPaths: ['/invoices'],
+    roles: ['ACCOUNTANT', 'ADMIN'],   // Chỉ Accountant và Admin
+    matchPaths: ['/create-deposit'],
   },
   {
     label: 'Quản lý cọc',
     path: '/deposits',
     icon: FiDollarSign,
-    roles: ['ACCOUNTANT', 'MANAGER'],
+    roles: ['MANAGER', 'ADMIN', 'ACCOUNTANT'],
     matchPaths: ['/deposits'],
   },
   {
@@ -112,9 +112,7 @@ const Sidebar = ({ onLogout }) => {
   );
 
   const handleLogout = () => {
-    // Always use context logout (clears token + user from localStorage)
     contextLogout();
-    // Also call the optional prop callback if provided (e.g. BookingWorkspace passes logout)
     if (typeof onLogout === 'function') onLogout();
     navigate('/login');
   };
