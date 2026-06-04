@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -53,7 +53,7 @@ const ContractCreation = () => {
   const [phong, setPhong] = useState(null);
   const [giaThue, setGiaThue] = useState(0);
   const [soTienCoc, setSoTienCoc] = useState(0);
-  const [members, setMembers] = useState([]); // danh sách thành viên nhóm (nếu có)
+  const [members, setMembers] = useState([]);
 
   // State cho rà soát
   const [screeningSaved, setScreeningSaved] = useState(false);
@@ -71,6 +71,9 @@ const ContractCreation = () => {
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [createdContractId, setCreatedContractId] = useState('');
 
+  // Dùng ref để tránh mở modal hai lần do StrictMode
+  const modalOpenedRef = useRef(false);
+
   // Fetch dữ liệu từ deposit
   useEffect(() => {
     if (!maCoc) {
@@ -81,8 +84,7 @@ const ContractCreation = () => {
 
     depositService.getDepositById(maCoc)
       .then(res => {
-        // res = { success: true, data: { ... } }
-        const deposit = res.data;   // ← LẤY data bên trong
+        const deposit = res.data;
         setKhachHang(deposit.khachHang);
         setPhong(deposit.phong);
         setGiaThue(deposit.phong?.GiaThue || 0);
@@ -155,10 +157,14 @@ const ContractCreation = () => {
         ngayKetThuc: form.ngayKetThuc,
         giaThue: giaThue,
         noiQuy: DIEU_KHOAN_TEXT,
-        chiTietThue: [], // Nếu thuê giường lẻ thì cần truyền, hiện tại thuê nguyên phòng
+        chiTietThue: [],
       });
       setCreatedContractId(res?.MaHopDong || '');
-      setInfoModalOpen(true);
+      // Chỉ mở modal nếu chưa mở (tránh StrictMode gọi hai lần)
+      if (!modalOpenedRef.current) {
+        modalOpenedRef.current = true;
+        setInfoModalOpen(true);
+      }
     } catch (err) {
       toast.error(err?.message || 'Tạo hợp đồng thất bại. Vui lòng thử lại.');
     } finally {
@@ -240,7 +246,6 @@ const ContractCreation = () => {
             </div>
           </div>
 
-          {/* Group members table (nếu có) */}
           {members.length > 0 && (
             <div style={{ marginTop: 20 }}>
               <div style={s.tableLabel}>Danh sách thành viên nhóm</div>
@@ -340,7 +345,23 @@ const ContractCreation = () => {
       </div>
 
       {/* Info Modal */}
-      <Modal isOpen={infoModalOpen} onClose={() => { setInfoModalOpen(false); navigate('/dashboard'); }} title="Hợp đồng đã được tạo" size="md" footer={<Button variant="primary" onClick={() => { setInfoModalOpen(false); navigate('/dashboard'); }}>Về trang chủ</Button>}>
+      <Modal
+        isOpen={infoModalOpen}
+        onClose={() => {
+          setInfoModalOpen(false);
+          modalOpenedRef.current = false; // reset flag khi đóng modal
+          navigate('/dashboard');
+        }}
+        title="Hợp đồng đã được tạo"
+        size="md"
+        footer={
+          <Button variant="primary" onClick={() => {
+            setInfoModalOpen(false);
+            modalOpenedRef.current = false;
+            navigate('/dashboard');
+          }}>Về trang chủ</Button>
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={s.modalSuccessIcon}><FiCheckCircle size={48} color="#198754" /></div>
           <div style={{ textAlign: 'center' }}>
