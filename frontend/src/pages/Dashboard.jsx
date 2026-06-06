@@ -80,7 +80,7 @@ export default function Dashboard() {
               <p style={{ color: '#6C757D', margin: '4px 0 0' }}>Đây là tổng quan hệ thống hôm nay</p>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              {['SALE', 'MANAGER', 'ADMIN'].includes(user?.chucVu) && (
+              {['SALE', 'MANAGER'].includes(user?.chucVu) && (
                 <button className="btn btn-primary" onClick={() => navigate('/booking')}>
                   <FiCalendar size={16} style={{ marginRight: 6 }} /> + Tạo đăng ký mới
                 </button>

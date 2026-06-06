@@ -11,7 +11,7 @@ const menuItems = [
     label: 'Dashboard',
     path: '/dashboard',
     icon: FiGrid,
-    roles: ['MANAGER', 'ADMIN', 'SALE', 'ACCOUNTANT'],
+    roles: ['MANAGER', 'ADMIN'],
     matchPaths: ['/', '/dashboard'],
   },
   {
@@ -25,42 +25,42 @@ const menuItems = [
     label: 'Đăng ký & đặt lịch',
     path: '/booking',
     icon: FiCalendar,
-    roles: ['SALE', 'MANAGER', 'ADMIN'],
+    roles: ['SALE'],
     matchPaths: ['/booking'],
   },
   {
     label: 'Hợp đồng',
     path: '/contracts',
     icon: FiFileText,
-    roles: ['SALE', 'MANAGER', 'ADMIN'],
+    roles: ['SALE'],
     matchPaths: ['/contracts'],
   },
   {
     label: 'Bàn giao',
     path: '/handover',
     icon: FiKey,
-    roles: ['SALE', 'MANAGER', 'ADMIN'],
+    roles: ['MANAGER'],
     matchPaths: ['/handover'],
   },
   {
     label: 'Trả phòng',
     path: '/checkout',
     icon: FiRotateCcw,
-    roles: ['SALE', 'MANAGER', 'ADMIN'],
+    roles: ['MANAGER'],
     matchPaths: ['/checkout'],
   },
   {
     label: 'Tạo đơn cọc từ lịch xem',
     path: '/create-deposit',
     icon: FiCreditCard,
-    roles: ['ACCOUNTANT', 'ADMIN'],   // Chỉ Accountant và Admin
+    roles: ['ACCOUNTANT'],   // Chỉ Accountant và Admin
     matchPaths: ['/create-deposit'],
   },
   {
     label: 'Quản lý cọc',
     path: '/deposits',
     icon: FiDollarSign,
-    roles: ['MANAGER', 'ADMIN', 'ACCOUNTANT'],
+    roles: ['ACCOUNTANT'],
     matchPaths: ['/deposits'],
   },
   {
