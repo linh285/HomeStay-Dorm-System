@@ -1092,3 +1092,138 @@ INSERT INTO DICHVU_PHONG (MaPhong, MaDV) VALUES
 -- =============================================================
 -- Done – seed-augmented.sql executed successfully
 -- =============================================================
+-- ============================================================
+-- Thêm dữ liệu BÀN GIAO (BangGiao) và tài sản kèm theo
+-- Sử dụng các hợp đồng ACTIVE / PENDING_FIRST_PAYMENT có sẵn
+-- ============================================================
+
+-- 1. Thêm bản ghi BANG_GIAO (10 bản ghi)
+INSERT INTO BANG_GIAO (MaBanGiao, MaHopDong, NgayGiao, TinhTrang, MaNV) VALUES
+('BG041', 'HD003', '2024-03-01 09:00:00', 'COMPLETED', 'NV002'),   -- hợp đồng HD003 đã bàn giao xong
+('BG042', 'HD004', '2024-03-15 10:30:00', 'COMPLETED', 'NV002'),
+('BG043', 'HD005', '2024-04-01 14:00:00', 'COMPLETED', 'NV005'),
+('BG044', 'HD006', '2024-04-15 08:00:00', 'COMPLETED', 'NV005'),
+('BG045', 'HD007', '2024-05-01 11:00:00', 'COMPLETED', 'NV005'),
+('BG046', 'HD008', '2024-05-15 09:30:00', 'COMPLETED', 'NV008'),
+('BG047', 'HD009', '2024-06-01 13:00:00', 'COMPLETED', 'NV008'),
+('BG048', 'HD010', '2024-06-15 10:00:00', 'COMPLETED', 'NV008'),
+('BG049', 'HD011', '2024-07-01 15:00:00', 'COMPLETED', 'NV011'),
+('BG050', 'HD023', '2025-02-01 09:00:00', 'PENDING',   'NV009');  -- hợp đồng PENDING_FIRST_PAYMENT, chưa bàn giao
+
+-- 2. Thêm tài sản cho từng bàn giao (mỗi bàn giao 5 tài sản cố định)
+-- Dùng asset mặc định: TS001 (giường), TS002 (nệm), TS003 (tủ), TS004 (chìa khóa), TS005 (điều hòa)
+-- BG041
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- chỗ này có khả năng sai !!!!
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG041','TS001',2,'Tốt','2 giường tầng',TRUE),
+('BG041','TS002',2,'Tốt','2 nệm',TRUE),
+('BG041','TS003',1,'Tốt','1 tủ',TRUE),
+('BG041','TS004',2,'Tốt','2 chìa khóa',TRUE),
+('BG041','TS005',1,'Tốt','1 điều hòa',TRUE);
+-- BG042
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG042','TS001',4,'Tốt','4 giường tầng',TRUE),
+('BG042','TS002',4,'Tốt','4 nệm',TRUE),
+('BG042','TS003',2,'Tốt','2 tủ',TRUE),
+('BG042','TS004',4,'Tốt','4 chìa khóa',TRUE),
+('BG042','TS005',1,'Tốt','1 điều hòa',TRUE);
+-- BG043
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG043','TS001',4,'Tốt','4 giường',TRUE),
+('BG043','TS002',4,'Tốt','4 nệm',TRUE),
+('BG043','TS003',2,'Tốt','2 tủ',TRUE),
+('BG043','TS004',4,'Tốt','4 chìa',TRUE),
+('BG043','TS005',1,'Tốt','1 ĐH',TRUE);
+-- BG044
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG044','TS001',6,'Tốt','6 giường',TRUE),
+('BG044','TS002',6,'Tốt','6 nệm',TRUE),
+('BG044','TS003',2,'Tốt','2 tủ',TRUE),
+('BG044','TS004',6,'Tốt','6 chìa',TRUE),
+('BG044','TS005',1,'Tốt','1 ĐH',TRUE);
+-- BG045
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG045','TS001',2,'Tốt','2 giường',TRUE),
+('BG045','TS002',2,'Tốt','2 nệm',TRUE),
+('BG045','TS003',1,'Tốt','1 tủ',TRUE),
+('BG045','TS004',2,'Tốt','2 chìa',TRUE),
+('BG045','TS005',1,'Tốt','1 ĐH',TRUE);
+-- BG046
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG046','TS001',4,'Tốt','4 giường',TRUE),
+('BG046','TS002',4,'Tốt','4 nệm',TRUE),
+('BG046','TS003',2,'Tốt','2 tủ',TRUE),
+('BG046','TS004',4,'Tốt','4 chìa',TRUE),
+('BG046','TS005',1,'Tốt','1 ĐH',TRUE);
+-- BG047
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG047','TS001',4,'Tốt','4 giường',TRUE),
+('BG047','TS002',4,'Tốt','4 nệm',TRUE),
+('BG047','TS003',2,'Tốt','2 tủ',TRUE),
+('BG047','TS004',4,'Tốt','4 chìa',TRUE),
+('BG047','TS007',4,'Tốt','4 bàn học',TRUE);  -- thêm bàn
+-- BG048
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG048','TS001',2,'Tốt','2 giường',TRUE),
+('BG048','TS002',2,'Tốt','2 nệm',TRUE),
+('BG048','TS003',1,'Tốt','1 tủ',TRUE),
+('BG048','TS004',2,'Tốt','2 chìa',TRUE),
+('BG048','TS006',1,'Tốt','1 quạt',TRUE);
+-- BG049
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG049','TS001',4,'Tốt','4 giường',TRUE),
+('BG049','TS002',4,'Tốt','4 nệm',TRUE),
+('BG049','TS003',2,'Tốt','2 tủ',TRUE),
+('BG049','TS004',4,'Tốt','4 chìa',TRUE),
+('BG049','TS005',1,'Tốt','1 ĐH',TRUE);
+-- BG050 (PENDING – chưa kiểm tra, DaKiemTra = FALSE)
+INSERT INTO BANGGIAO_TAISAN (MaBanGiao, MaTaiSan, SoLuong, TinhTrangLucGiao, GhiChu, DaKiemTra) VALUES
+('BG050','TS001',2,'Tốt','2 giường',FALSE),
+('BG050','TS002',2,'Tốt','2 nệm',FALSE),
+('BG050','TS003',1,'Tốt','1 tủ',FALSE),
+('BG050','TS004',2,'Tốt','2 chìa',FALSE),
+('BG050','TS005',1,'Tốt','1 điều hòa',FALSE);
+
+
+
+--
+-- Tạo 10 yêu cầu trả phòng cho SALE (trạng thái PENDING)
+-- Sử dụng các hợp đồng ACTIVE có sẵn trong database
+INSERT INTO TRA_PHONG (MaTra, MaHopDong, NgayYeuCau, NgayTraDuKien, LyDo, TrangThai, MaNVXuLy)
+VALUES
+('TR031', 'HD003', '2025-06-07 09:00:00', '2025-06-30', 'Kết thúc hợp đồng, không gia hạn', 'PENDING', 'NV003'),
+('TR032', 'HD004', '2025-06-08 10:30:00', '2025-07-05', 'Chuyển chỗ ở gần công ty mới', 'PENDING', 'NV003'),
+('TR033', 'HD005', '2025-06-09 14:00:00', '2025-07-10', 'Học xong, về quê', 'PENDING', 'NV003'),
+('TR034', 'HD006', '2025-06-10 08:15:00', '2025-06-28', 'Gia đình có việc đột xuất', 'PENDING', 'NV003'),
+('TR035', 'HD007', '2025-06-11 11:00:00', '2025-07-15', 'Chuyển sang phòng khác rộng hơn', 'PENDING', 'NV003'),
+('TR036', 'HD008', '2025-06-12 09:45:00', '2025-07-01', 'Hết hạn hợp đồng', 'PENDING', 'NV003'),
+('TR037', 'HD009', '2025-06-13 13:30:00', '2025-06-25', 'Lý do cá nhân', 'PENDING', 'NV003'),
+('TR038', 'HD010', '2025-06-14 15:00:00', '2025-07-20', 'Chuyển công tác ra Hà Nội', 'PENDING', 'NV003'),
+('TR039', 'HD011', '2025-06-15 10:00:00', '2025-07-08', 'Kết thúc hợp đồng sớm', 'PENDING', 'NV003'),
+('TR040', 'HD012', '2025-06-16 09:30:00', '2025-07-12', 'Tìm được phòng giá rẻ hơn', 'PENDING', 'NV003');

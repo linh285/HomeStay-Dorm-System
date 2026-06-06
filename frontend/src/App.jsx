@@ -18,6 +18,7 @@ import FinancialSettlement from './pages/FinancialSettlement';
 import InvoiceGenerator from './pages/InvoiceGenerator';
 import PolicyManagement from './pages/PolicyManagement';
 import CreateDepositFromSchedule from './pages/CreateDepositFromSchedule';
+import FirstPaymentConfirmation from './pages/FirstPaymentConfirmation';
 
 export default function App() {
   return (
@@ -35,33 +36,34 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* Routes for all authenticated users */}
+          {/* Dashboard - tất cả authenticated users */}
           <Route element={<PrivateRoute />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/checkout" element={<CheckoutRequest />} />
-            <Route path="/checkout/inspect" element={<CheckoutInspection />} />
-            <Route path="/settlement" element={<FinancialSettlement />} />
           </Route>
 
-          {/* Routes for SALE, MANAGER, ADMIN */}
-          <Route element={<PrivateRoute roles={['SALE', 'MANAGER', 'ADMIN']} />}>
-            <Route path="/booking" element={<BookingWorkspace />} />
-            <Route path="/contracts" element={<ContractCreation />} />
+          {/* MANAGER, ADMIN: Quản lý phòng, Quy định, Kiểm tra trả phòng, Bàn giao phòng */}
+          <Route element={<PrivateRoute roles={['MANAGER', 'ADMIN']} />}>
+            <Route path="/rooms" element={<RoomInventory />} />
+            <Route path="/policies" element={<PolicyManagement />} />
+            <Route path="/checkout/inspect" element={<CheckoutInspection />} />
             <Route path="/handover" element={<RoomHandover />} />
           </Route>
 
-          {/* Routes for MANAGER, ADMIN, ACCOUNTANT */}
-          <Route element={<PrivateRoute roles={['MANAGER', 'ADMIN', 'ACCOUNTANT']} />}>
-            <Route path="/rooms" element={<RoomInventory />} />
-            <Route path="/policies" element={<PolicyManagement />} />
-            <Route path="/deposits" element={<DepositPayment />} />
+          {/* SALE, ADMIN: Đăng ký & đặt lịch, Hợp đồng, Đăng ký trả phòng */}
+          <Route element={<PrivateRoute roles={['SALE', 'ADMIN']} />}>
+            <Route path="/booking" element={<BookingWorkspace />} />
+            <Route path="/contracts" element={<ContractCreation />} />
+            <Route path="/checkout" element={<CheckoutRequest />} />
           </Route>
 
-          {/* Routes for ACCOUNTANT, ADMIN */}
+          {/* ACCOUNTANT, ADMIN: Quản lý cọc, Tạo đơn cọc từ lịch xem, Lập hóa đơn, Quyết toán, Xác nhận thanh toán kỳ đầu */}
           <Route element={<PrivateRoute roles={['ACCOUNTANT', 'ADMIN']} />}>
+            <Route path="/deposits" element={<DepositPayment />} />
             <Route path="/create-deposit" element={<CreateDepositFromSchedule />} />
             <Route path="/invoices/new" element={<InvoiceGenerator />} />
+            <Route path="/settlement" element={<FinancialSettlement />} />
+            <Route path="/first-payment" element={<FirstPaymentConfirmation />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,10 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const c = require('../controllers/settlementController');
+const settlementController = require('../controllers/settlementController');
 const { authenticate, requireRole } = require('../middleware/auth');
 
-router.get('/:maTra', authenticate, c.getSettlement);
-router.post('/:maTra/calculate', authenticate, c.calculateSettlement);
-router.put('/:maTra/confirm', authenticate, requireRole('ACCOUNTANT', 'MANAGER', 'ADMIN'), c.confirmSettlement);
+router.use(authenticate);
+
+// ACCOUNTANT, ADMIN: xem dữ liệu quyết toán
+router.get('/:maTra', requireRole('ACCOUNTANT', 'ADMIN'), settlementController.getSettlement);
+
+// ACCOUNTANT, ADMIN: tính toán lại (nếu cần) - có thể gọi getSettlement
+router.post('/:maTra/calculate', requireRole('ACCOUNTANT', 'ADMIN'), settlementController.calculateSettlement);
+
+// ACCOUNTANT, ADMIN: xác nhận quyết toán
+router.put('/:maTra/confirm', requireRole('ACCOUNTANT', 'ADMIN'), settlementController.confirmSettlement);
 
 module.exports = router;

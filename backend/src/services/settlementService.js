@@ -1,7 +1,30 @@
 const { TraPhong, ChiTietKhauTru, HopDongThueNha, DatCoc, Phong, Giuong, ThanhToan, sequelize } = require('../models');
+const { diffInMonths } = require('../utils/dateHelpers');
 
 /**
- * Lấy dữ liệu đối soát quyết toán
+ * Tính tỷ lệ hoàn cọc theo quy định nghiệp vụ
+ * @param {Object} hopDong - Hợp đồng (có thể null)
+ * @param {Date} ngayTra - Ngày trả thực tế
+ * @returns {number} tỷ lệ (0.8, 0.5, 0.7, 1.0)
+ */
+const calculateRefundRate = (hopDong, ngayTra) => {
+  if (!hopDong) return 0.8; // Chưa ký hợp đồng → 80%
+
+  const ngayBatDau = new Date(hopDong.NgayBatDau);
+  const ngayKetThuc = new Date(hopDong.NgayKetThuc);
+  const ngayTraDate = new Date(ngayTra);
+
+  // Hợp đồng đã hết hạn tự nhiên
+  if (ngayTraDate >= ngayKetThuc) return 1.0;
+
+  // Chưa hết hạn, tính số tháng đã ở
+  const monthsStayed = diffInMonths(ngayBatDau, ngayTraDate);
+  if (monthsStayed < 6) return 0.5;
+  return 0.7;
+};
+
+/**
+ * Lấy dữ liệu đối soát quyết toán (dành cho ACCOUNTANT)
  */
 const getSettlementData = async (maTra) => {
   const traPhong = await TraPhong.findByPk(maTra, {
@@ -17,10 +40,17 @@ const getSettlementData = async (maTra) => {
     ],
   });
   if (!traPhong) throw { statusCode: 404, message: 'Yêu cầu trả phòng không tồn tại' };
+  if (traPhong.TrangThai !== 'INSPECTED') {
+    throw { statusCode: 400, message: 'Yêu cầu chưa được kiểm tra xong' };
+  }
 
-  const soTienCoc = Number(traPhong.hopDong?.datCoc?.SoTienCoc || 0);
-  const tyLeHoanCoc = Number(traPhong.TyLeHoanCoc || 0) / 100;
-  const soTienHoanCoBan = Math.round(soTienCoc * tyLeHoanCoc);
+  const hopDong = traPhong.hopDong;
+  const soTienCoc = Number(hopDong?.datCoc?.SoTienCoc || 0);
+  const ngayTra = traPhong.NgayTraThucTe || new Date();
+  const tyLe = calculateRefundRate(hopDong, ngayTra);
+  const tyLePercent = tyLe * 100;
+
+  const soTienHoanCoBan = Math.round(soTienCoc * tyLe);
   const tongKhauTru = traPhong.chiTietKhauTrus.reduce((sum, k) => sum + Number(k.SoTien), 0);
   const soTienHoanCuoi = soTienHoanCoBan - tongKhauTru;
   const ketQua = soTienHoanCuoi >= 0 ? 'HOAN_COC' : 'THU_THEM';
@@ -28,7 +58,7 @@ const getSettlementData = async (maTra) => {
   return {
     traPhong,
     soTienCoc,
-    tyLeHoanCoc: traPhong.TyLeHoanCoc,
+    tyLeHoanCoc: tyLePercent,
     soTienHoanCoBan,
     chiTietKhauTru: traPhong.chiTietKhauTrus,
     tongKhauTru,
@@ -38,14 +68,7 @@ const getSettlementData = async (maTra) => {
 };
 
 /**
- * Tính toán lại quyết toán (sau khi thêm khấu trừ)
- */
-const calculateSettlement = async (maTra) => {
-  return await getSettlementData(maTra);
-};
-
-/**
- * Xác nhận quyết toán - hoàn cọc hoặc thu thêm
+ * Xác nhận quyết toán (ACCOUNTANT)
  */
 const confirmSettlement = async (maTra, data) => {
   const { phuongThuc, ghiChu } = data;
@@ -54,10 +77,9 @@ const confirmSettlement = async (maTra, data) => {
 
   const t = await sequelize.transaction();
   try {
-    // Create payment record
+    // Tạo thanh toán
     const countTT = await ThanhToan.count({ transaction: t });
     const maThanhToan = `TT-${String(countTT + 1).padStart(5, '0')}`;
-
     await ThanhToan.create({
       MaThanhToan: maThanhToan,
       MaHopDong: traPhong.MaHopDong,
@@ -70,15 +92,17 @@ const confirmSettlement = async (maTra, data) => {
       GhiChu: ghiChu || '',
     }, { transaction: t });
 
-    // Update TraPhong to COMPLETED
-    await traPhong.update({ TrangThai: 'COMPLETED', NgayTraThucTe: new Date() }, { transaction: t });
+    // Cập nhật trạng thái yêu cầu trả phòng
+    await traPhong.update({ TrangThai: 'COMPLETED' }, { transaction: t });
 
-    // Terminate contract and free room
+    // Thanh lý hợp đồng và giải phóng phòng
     const hopDong = traPhong.hopDong;
-    await HopDongThueNha.update({ TinhTrang: 'TERMINATED' }, { where: { MaHopDong: traPhong.MaHopDong }, transaction: t });
-    if (hopDong?.MaPhong) {
-      await Phong.update({ TinhTrang: 'AVAILABLE' }, { where: { MaPhong: hopDong.MaPhong }, transaction: t });
-      await Giuong.update({ TinhTrang: 'AVAILABLE' }, { where: { MaPhong: hopDong.MaPhong }, transaction: t });
+    if (hopDong) {
+      await HopDongThueNha.update({ TinhTrang: 'TERMINATED' }, { where: { MaHopDong: traPhong.MaHopDong }, transaction: t });
+      if (hopDong.MaPhong) {
+        await Phong.update({ TinhTrang: 'AVAILABLE' }, { where: { MaPhong: hopDong.MaPhong }, transaction: t });
+        await Giuong.update({ TinhTrang: 'AVAILABLE' }, { where: { MaPhong: hopDong.MaPhong }, transaction: t });
+      }
     }
 
     await t.commit();
@@ -89,4 +113,4 @@ const confirmSettlement = async (maTra, data) => {
   }
 };
 
-module.exports = { getSettlementData, calculateSettlement, confirmSettlement };
+module.exports = { getSettlementData, confirmSettlement };

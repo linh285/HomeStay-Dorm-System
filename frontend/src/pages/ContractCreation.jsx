@@ -9,6 +9,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
+import { useAuth } from '../hooks/useAuth';
 import * as contractService from '../services/contractService';
 import * as depositService from '../services/depositService';
 import * as groupService from '../services/groupService';
@@ -44,24 +45,20 @@ const formatCurrency = (n) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 
 const ContractCreation = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const maCoc = location.state?.maCoc;
   const maNhom = location.state?.maNhom;
 
-  // State cho dữ liệu từ backend
   const [loadingData, setLoadingData] = useState(true);
   const [khachHang, setKhachHang] = useState(null);
   const [phong, setPhong] = useState(null);
   const [giaThue, setGiaThue] = useState(0);
   const [soTienCoc, setSoTienCoc] = useState(0);
   const [members, setMembers] = useState([]);
-
-  // State cho rà soát
   const [screeningSaved, setScreeningSaved] = useState(false);
   const [contractUnlocked, setContractUnlocked] = useState(false);
-
-  // State cho form hợp đồng
   const [form, setForm] = useState({
     ngayBatDau: '',
     ngayKetThuc: '',
@@ -72,18 +69,17 @@ const ContractCreation = () => {
   const [loading, setLoading] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [createdContractId, setCreatedContractId] = useState('');
-
-  // Dùng ref để tránh mở modal hai lần do StrictMode
   const modalOpenedRef = useRef(false);
 
-  // Fetch dữ liệu từ deposit
+  const userRole = user?.chucVu?.toUpperCase();
+  const isManagerOrAdmin = userRole === 'MANAGER' || userRole === 'ADMIN';
+
   useEffect(() => {
     if (!maCoc) {
       toast.error('Không tìm thấy thông tin đặt cọc. Vui lòng quay lại.');
       navigate('/booking');
       return;
     }
-
     depositService.getDepositById(maCoc)
       .then(res => {
         const deposit = res.data;
@@ -109,7 +105,7 @@ const ContractCreation = () => {
       });
   }, [maCoc, navigate]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (maNhom) {
       groupService.getGroupById(maNhom)
         .then(res => {
@@ -133,7 +129,6 @@ const ContractCreation = () => {
   const failedCount = members.filter(m => m.trangThai === 'khong_dat').length;
   const allFailed = members.length > 0 && failedCount === members.length;
   const someFailedNotAll = failedCount > 0 && !allFailed;
-
   const isFormValid = agreed && form.ngayBatDau && form.ngayKetThuc && form.soNguoiThue && form.kyThanhToan;
 
   const handleMemberStatus = (id, status) => {
@@ -145,16 +140,19 @@ const ContractCreation = () => {
   };
 
   const handleSaveScreening = async () => {
+    if (!isManagerOrAdmin) {
+      toast.error('Chỉ Quản lý mới có quyền rà soát thành viên.');
+      return;
+    }
     if (!allChecked) {
       toast.error('Vui lòng xét duyệt tất cả thành viên trước khi lưu.');
       return;
     }
-    // Nếu có nhóm, gửi kết quả lên backend
     if (maNhom && members.length > 0) {
       const screeningResults = members.map(m => ({
         maKH: m.id,
         trangThai: m.trangThai === 'dat' ? 'APPROVED' : (m.trangThai === 'khong_dat' ? 'REJECTED' : 'PENDING')
-      })).filter(r => r.trangThai !== 'PENDING'); // chỉ gửi những người đã đánh giá
+      })).filter(r => r.trangThai !== 'PENDING');
       try {
         await contractService.screenGroupMembers(maNhom, { screeningResults });
       } catch (err) {
@@ -195,7 +193,6 @@ const ContractCreation = () => {
         chiTietThue: [],
       });
       setCreatedContractId(res?.data?.MaHopDong || '');
-      // Chỉ mở modal nếu chưa mở (tránh StrictMode gọi hai lần)
       if (!modalOpenedRef.current) {
         modalOpenedRef.current = true;
         setInfoModalOpen(true);
@@ -240,7 +237,6 @@ const ContractCreation = () => {
 
   return (
     <div style={s.page}>
-      {/* Back button */}
       <div style={{ marginBottom: 20 }}>
         <button
           onClick={() => navigate(-1)}
@@ -287,7 +283,12 @@ const ContractCreation = () => {
               <div style={{ overflowX: 'auto' }}>
                 <table style={s.table}>
                   <thead>
-                    <tr><th style={s.th}>Họ tên</th><th style={s.th}>Giấy tờ</th><th style={{ ...s.th, textAlign: 'center' }}>Trạng thái</th><th style={{ ...s.th, textAlign: 'center' }}>Thao tác</th></tr>
+                    <tr>
+                      <th style={s.th}>Họ tên</th>
+                      <th style={s.th}>Giấy tờ</th>
+                      <th style={{ ...s.th, textAlign: 'center' }}>Trạng thái</th>
+                      <th style={{ ...s.th, textAlign: 'center' }}>Thao tác</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {members.map((m) => (
@@ -296,14 +297,18 @@ const ContractCreation = () => {
                         <td style={s.td}>{m.giayTo}</td>
                         <td style={{ ...s.td, textAlign: 'center' }}>{memberStatusBadge(m.trangThai)}</td>
                         <td style={{ ...s.td, textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                            <button style={{ ...s.actionBtn, ...s.actionBtnDat }} disabled={m.trangThai !== null} onClick={() => handleMemberStatus(m.id, 'dat')}>
-                              <FiCheckCircle size={13} /> Đạt
-                            </button>
-                            <button style={{ ...s.actionBtn, ...s.actionBtnKhong }} disabled={m.trangThai !== null} onClick={() => handleMemberStatus(m.id, 'khong_dat')}>
-                              <FiXCircle size={13} /> Không đạt
-                            </button>
-                          </div>
+                          {isManagerOrAdmin && m.trangThai === null ? (
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                              <button style={{ ...s.actionBtn, ...s.actionBtnDat }} onClick={() => handleMemberStatus(m.id, 'dat')}>
+                                <FiCheckCircle size={13} /> Đạt
+                              </button>
+                              <button style={{ ...s.actionBtn, ...s.actionBtnKhong }} onClick={() => handleMemberStatus(m.id, 'khong_dat')}>
+                                <FiXCircle size={13} /> Không đạt
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 12, color: '#6c757d' }}>{m.trangThai ? 'Đã xét' : 'Chờ duyệt'}</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -321,10 +326,16 @@ const ContractCreation = () => {
           )}
 
           <div style={s.screeningActions}>
-            <Button variant="primary" onClick={handleSaveScreening} disabled={!allChecked}>
-              <FiCheckCircle size={14} /> Lưu kết quả rà soát
-            </Button>
-            {screeningSaved && allFailed && (
+            {isManagerOrAdmin ? (
+              <Button variant="primary" onClick={handleSaveScreening} disabled={!allChecked}>
+                <FiCheckCircle size={14} /> Lưu kết quả rà soát
+              </Button>
+            ) : (
+              <div style={{ fontSize: 13, color: '#6c757d', background: '#f8f9fa', padding: '8px 12px', borderRadius: 8 }}>
+                <FiInfo size={14} style={{ marginRight: 6 }} /> Chỉ Quản lý mới có quyền rà soát thành viên.
+              </div>
+            )}
+            {screeningSaved && allFailed && isManagerOrAdmin && (
               <Button variant="danger" onClick={handleReject}>
                 <FiXCircle size={14} /> Từ chối thuê
               </Button>
@@ -384,7 +395,7 @@ const ContractCreation = () => {
         isOpen={infoModalOpen}
         onClose={() => {
           setInfoModalOpen(false);
-          modalOpenedRef.current = false; // reset flag khi đóng modal
+          modalOpenedRef.current = false;
           navigate('/dashboard');
         }}
         title="Hợp đồng đã được tạo"

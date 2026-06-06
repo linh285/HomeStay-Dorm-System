@@ -1,6 +1,6 @@
 /**
  * TraPhong Model
- * Represents a room return / check-out record (tráº?phÃ²ng).
+ * Represents a room return / check-out record (trï¿½?phÃ²ng).
  */
 module.exports = (sequelize, DataTypes) => {
   const TraPhong = sequelize.define(
@@ -51,7 +51,7 @@ module.exports = (sequelize, DataTypes) => {
       TyLeHoanCoc: {
         type: DataTypes.DECIMAL(5, 2),
         allowNull: true,
-        comment: 'Deposit refund percentage (0â€?00)',
+        comment: 'Deposit refund percentage (0ï¿½?00)',
       },
       SoTienHoan: {
         type: DataTypes.DECIMAL(12, 0),
@@ -59,7 +59,7 @@ module.exports = (sequelize, DataTypes) => {
         comment: 'Actual refund amount after deductions',
       },
       TrangThai: {
-        type: DataTypes.ENUM('PENDING', 'INSPECTING', 'COMPLETED', 'CANCELLED'),
+        type: DataTypes.ENUM('PENDING', 'INSPECTING', 'INSPECTED', 'COMPLETED', 'CANCELLED'),
         allowNull: false,
         defaultValue: 'PENDING',
         comment: 'Check-out process status',
@@ -67,7 +67,7 @@ module.exports = (sequelize, DataTypes) => {
       MaNVXuLy: {
         type: DataTypes.STRING(20),
         allowNull: true,
-        comment: 'Foreign key to NHAN_VIEN â€?staff handling the check-out',
+        comment: 'Foreign key to NHAN_VIEN ï¿½?staff handling the check-out',
       },
     },
     {

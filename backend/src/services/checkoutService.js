@@ -1,27 +1,8 @@
 const { Op } = require('sequelize');
 const { TraPhong, ChiTietKhauTru, HopDongThueNha, Phong, Giuong, NhanVien, Nhom, KhachHang, DatCoc, sequelize } = require('../models');
-const { diffInMonths } = require('../utils/dateHelpers');
 
 /**
- * Tính tỷ lệ hoàn cọc theo quy định nghiệp vụ
- */
-const calculateRefundRate = (hopDong, ngayTra) => {
-  if (!hopDong) return 0.8; // Chưa ký hợp đồng → 80%
-  const ngayBatDau = new Date(hopDong.NgayBatDau);
-  const ngayKetThuc = new Date(hopDong.NgayKetThuc);
-  const ngayTraDate = new Date(ngayTra || new Date());
-  const monthsStayed = diffInMonths(ngayBatDau, ngayTraDate);
-
-  // HĐ đã hết hạn tự nhiên
-  if (ngayTraDate >= ngayKetThuc) return 1.0;
-  // HĐ chưa hết hạn, ở < 6 tháng
-  if (monthsStayed < 6) return 0.5;
-  // HĐ chưa hết hạn, ở >= 6 tháng
-  return 0.7;
-};
-
-/**
- * Tạo yêu cầu trả phòng
+ * Tạo yêu cầu trả phòng (SALE)
  */
 const createCheckoutRequest = async (data) => {
   const { maHopDong, ngayTraDuKien, lyDo, ghiChu, maNVXuLy } = data;
@@ -49,12 +30,16 @@ const createCheckoutRequest = async (data) => {
 };
 
 /**
- * Lấy tất cả yêu cầu trả phòng
+ * Lấy tất cả yêu cầu trả phòng (hỗ trợ lọc status, ví dụ: status=PENDING,INSPECTING)
  */
 const getAllCheckoutRequests = async (filters = {}) => {
   const { trangThai, search, page = 1, limit = 20 } = filters;
   const where = {};
-  if (trangThai && trangThai !== 'ALL') where.TrangThai = trangThai;
+  if (trangThai && trangThai !== 'ALL') {
+    // Cho phép lọc nhiều status cách nhau bằng dấu phẩy
+    const statuses = trangThai.split(',');
+    where.TrangThai = { [Op.in]: statuses };
+  }
 
   const { count, rows } = await TraPhong.findAndCountAll({
     where,
@@ -99,44 +84,37 @@ const getCheckoutById = async (maTra) => {
 };
 
 /**
- * Bắt đầu kiểm tra phòng
+ * Bắt đầu kiểm tra phòng (MANAGER)
  */
 const startInspection = async (maTra, maNVXuLy) => {
   const traPhong = await TraPhong.findByPk(maTra);
   if (!traPhong) throw { statusCode: 404, message: 'Không tìm thấy yêu cầu trả phòng' };
+  if (traPhong.TrangThai !== 'PENDING') {
+    throw { statusCode: 400, message: 'Yêu cầu không ở trạng thái chờ kiểm tra' };
+  }
   await traPhong.update({ TrangThai: 'INSPECTING', MaNVXuLy: maNVXuLy });
   return traPhong;
 };
 
 /**
- * Hoàn tất kiểm tra phòng - tính tỷ lệ hoàn cọc tự động
+ * Hoàn tất kiểm tra phòng (MANAGER) → chuyển thành INSPECTED, chờ kế toán
  */
 const completeInspection = async (maTra, data) => {
   const { tinhTrangPhong, ngayTraThucTe, ghiChu } = data;
-  const traPhong = await TraPhong.findByPk(maTra, {
-    include: [{ model: HopDongThueNha, as: 'hopDong', include: [{ model: DatCoc, as: 'datCoc' }] }]
-  });
+  const traPhong = await TraPhong.findByPk(maTra);
   if (!traPhong) throw { statusCode: 404, message: 'Không tìm thấy yêu cầu trả phòng' };
-
-  const hopDong = traPhong.hopDong;
-  const ngayTra = ngayTraThucTe || new Date();
-  const tyLeHoanCoc = calculateRefundRate(hopDong, ngayTra);
-  const soTienCoc = hopDong?.datCoc?.SoTienCoc || 0;
-  const soTienHoan = Math.round(soTienCoc * tyLeHoanCoc);
 
   await traPhong.update({
     TinhTrangPhong: tinhTrangPhong,
-    NgayTraThucTe: ngayTra,
-    TyLeHoanCoc: tyLeHoanCoc * 100,
-    SoTienHoan: soTienHoan,
-    TrangThai: 'INSPECTING',
+    NgayTraThucTe: ngayTraThucTe || new Date(),
+    TrangThai: 'INSPECTED',   // chờ kế toán
   });
 
   return traPhong;
 };
 
 /**
- * Ghi nhận hư hại / khoản khấu trừ
+ * Ghi nhận hư hại / khoản khấu trừ (MANAGER)
  */
 const addDamageRecord = async (maTra, data) => {
   const { loaiPhi, soTien, ghiChu } = data;
@@ -146,18 +124,14 @@ const addDamageRecord = async (maTra, data) => {
     SoTien: soTien,
     GhiChu: ghiChu,
   });
-  // Recalculate SoTienHoan
-  const traPhong = await TraPhong.findByPk(maTra, {
-    include: [
-      { model: ChiTietKhauTru, as: 'chiTietKhauTrus' },
-      { model: HopDongThueNha, as: 'hopDong', include: [{ model: DatCoc, as: 'datCoc' }] }
-    ]
-  });
-  const tongKhauTru = traPhong.chiTietKhauTrus.reduce((sum, k) => sum + Number(k.SoTien), 0);
-  const soTienCoc = traPhong.hopDong?.datCoc?.SoTienCoc || 0;
-  const soTienHoan = Math.max(0, Math.round(soTienCoc * (traPhong.TyLeHoanCoc / 100)) - tongKhauTru);
-  await traPhong.update({ SoTienHoan: soTienHoan });
   return khauTru;
 };
 
-module.exports = { createCheckoutRequest, getAllCheckoutRequests, getCheckoutById, startInspection, completeInspection, addDamageRecord, calculateRefundRate };
+module.exports = {
+  createCheckoutRequest,
+  getAllCheckoutRequests,
+  getCheckoutById,
+  startInspection,
+  completeInspection,
+  addDamageRecord,
+};
