@@ -8,7 +8,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import { getHandover, createHandover, confirmHandover, updateAssetCheck } from '../services/handoverService';
-import { getContracts } from '../services/contractService';
+import { findContractBySearch } from '../services/contractService';
 import { formatDate, formatCurrency } from '../utils/formatters';
 
 export default function RoomHandover() {
@@ -37,24 +37,16 @@ export default function RoomHandover() {
     setSearching(true);
     setSearchResults([]);
     try {
-      // Gọi API lấy danh sách hợp đồng (có thể param search chưa hoạt động, nhưng vẫn gọi)
-      const res = await getContracts({ search: keyword });
-      const allContracts = res?.data?.contracts || [];
-      
-      // Lọc trên frontend theo mã hợp đồng hoặc tên khách (không phân biệt hoa thường)
-      const lowerKeyword = keyword.toLowerCase();
-      const filtered = allContracts.filter(contract => {
-        const maHopDong = contract.MaHopDong?.toLowerCase() || '';
-        const tenKhach = contract.nhom?.daiDien?.HoTen?.toLowerCase() || '';
-        return maHopDong.includes(lowerKeyword) || tenKhach.includes(lowerKeyword);
-      });
+      // Tìm đúng hợp đồng theo mã HD hoặc SĐT (endpoint /contracts/search)
+      const res = await findContractBySearch(keyword);
+      const contract = res?.data || null;
 
-      if (filtered.length === 0) {
+      if (!contract) {
         toast.error('Không tìm thấy hợp đồng nào');
         setSearchResults([]);
       } else {
-        setSearchResults(filtered);
-        toast.success(`Tìm thấy ${filtered.length} hợp đồng`);
+        setSearchResults([contract]);
+        toast.success('Tìm thấy hợp đồng');
       }
     } catch (err) {
       console.error(err);

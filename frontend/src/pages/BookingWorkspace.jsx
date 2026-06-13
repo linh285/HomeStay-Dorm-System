@@ -142,7 +142,7 @@ const RoomCard = ({ room, isSelected, onSelect }) => {
 
 const BookingWorkspace = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, hasRole } = useAuth();
 
   // ── Form state
   const [form, setForm] = useState(INITIAL_FORM);
@@ -345,7 +345,7 @@ const BookingWorkspace = () => {
     try {
       const soGiuong = selectedRoom.soGiuong || 1;
       const giaThue = selectedRoom.giaThuePhanThang || selectedRoom.giaThue || 0;
-      const tienCoc = giaThue * 2 * soGiuong;
+      const tienCoc = giaThue * 2; // thuê nguyên phòng: cọc = 2 tháng tiền phòng
 
       const response = await depositService.createDeposit({
         maPhong: selectedRoom.maPhong,
@@ -362,8 +362,12 @@ const BookingWorkspace = () => {
       const maKH = response?.data?.MaKH || response?.MaKH; // ← thêm dòng này
       if (maCoc && maKH) {
         setKhachHangId(maKH); // ← lưu lại để dùng cho lịch xem
-        toast.success('Tạo yêu cầu đặt cọc thành công! Chuyển sang lập hợp đồng...');
-        navigate('/contracts', { state: { maCoc, maNhom } });
+        toast.success('Tạo yêu cầu đặt cọc thành công! Chờ xác nhận thanh toán cọc.');
+        if (hasRole('MANAGER', 'ADMIN', 'ACCOUNTANT')) {
+          navigate('/deposits');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         toast.error('Không nhận được mã cọc hoặc mã khách hàng, vui lòng thử lại.');
       }
@@ -377,7 +381,7 @@ const BookingWorkspace = () => {
   // ── Deposit amount calculation
   const soGiuong = selectedRoom?.soGiuong || 1;
   const giaThue = selectedRoom?.giaThuePhanThang || selectedRoom?.giaThue || 0;
-  const tienCoc = giaThue * 2 * soGiuong;
+  const tienCoc = giaThue * 2; // thuê nguyên phòng: cọc = 2 tháng tiền phòng
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (

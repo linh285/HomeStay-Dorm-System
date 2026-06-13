@@ -41,7 +41,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const isAuthenticated = !!token;
-  const hasRole = (...roles) => user && roles.includes(user.chucVu);
+  const hasRole = (...roles) => {
+    const userRole = user?.chucVu?.toUpperCase();
+    return !!userRole && roles.map(role => role.toUpperCase()).includes(userRole);
+  };
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated, hasRole }}>

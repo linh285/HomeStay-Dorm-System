@@ -81,4 +81,27 @@ const confirmDeposit = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
-module.exports = { getAllDeposits, getDepositById, createDeposit, confirmDeposit };
+const cancelDeposit = async (req, res, next) => {
+  try {
+    const maNVXuLy = req.user.maNV;
+    const result = await depositService.cancelDeposit(req.params.maCoc, { ...req.body, maNVXuLy });
+    return successResponse(res, result, 'Hủy đặt cọc thành công');
+  } catch (e) { next(e); }
+};
+
+const rejectDeposit = async (req, res, next) => {
+  try {
+    const maNVXuLy = req.user.maNV;
+    const result = await depositService.rejectDeposit(req.params.maCoc, { ...req.body, maNVXuLy });
+    return successResponse(res, result, 'Từ chối đặt cọc thành công');
+  } catch (e) { next(e); }
+};
+
+const sendPaymentRequest = async (req, res, next) => {
+  try {
+    const result = await depositService.sendPaymentRequest(req.params.maCoc);
+    return successResponse(res, result, 'Đã gửi yêu cầu thanh toán. Khách có 24 giờ để thanh toán.');
+  } catch (e) { next(e); }
+};
+
+module.exports = { getAllDeposits, getDepositById, createDeposit, confirmDeposit, cancelDeposit, rejectDeposit, sendPaymentRequest };

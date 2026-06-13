@@ -11,7 +11,8 @@ import Button from '../components/ui/Button';
 import { getPolicies, createPolicy, updatePolicy, deletePolicy } from '../services/policyService';
 import { formatDate } from '../utils/formatters';
 
-const NHOM_OPTIONS = ['Tài chính', 'Nội quy', 'Hợp đồng', 'An ninh', 'Vệ sinh', 'Khác'];
+// Phải khớp đúng giá trị NhomQuyDinh trong CSDL (chữ HOA) thì lọc mới ra kết quả
+const NHOM_OPTIONS = ['NỘI QUY PHÒNG', 'VỆ SINH CHUNG', 'AN NINH', 'TÀI CHÍNH', 'HỢP ĐỒNG', 'KHÁC'];
 const UU_TIEN_OPTIONS = [
   { value: 'HIGH', label: 'Cao' },
   { value: 'MEDIUM', label: 'Trung bình' },
@@ -20,7 +21,7 @@ const UU_TIEN_OPTIONS = [
 
 const defaultForm = {
   TieuDe: '',
-  NhomQuyDinh: 'Nội quy',
+  NhomQuyDinh: 'NỘI QUY PHÒNG',
   NoiDung: '',
   NgayHieuLuc: '',
   NgayHetHieuLuc: '',
@@ -127,6 +128,9 @@ export default function PolicyManagement() {
     return matchSearch && matchNhom;
   });
 
+  // Tùy chọn lọc theo nhóm: lấy từ dữ liệu thực tế để luôn khớp giá trị trong CSDL
+  const nhomFilterOptions = [...new Set(policies.map(p => p.NhomQuyDinh).filter(Boolean))].sort();
+
   const columns = [
     {
       key: 'MaQuyDinh',
@@ -229,7 +233,7 @@ export default function PolicyManagement() {
                   onChange={(e) => setFilters((f) => ({ ...f, nhomQuyDinh: e.target.value }))}
                 >
                   <option value="">Tất cả</option>
-                  {NHOM_OPTIONS.map((n) => (
+                  {nhomFilterOptions.map((n) => (
                     <option key={n} value={n}>{n}</option>
                   ))}
                 </select>

@@ -1090,5 +1090,136 @@ INSERT INTO DICHVU_PHONG (MaPhong, MaDV) VALUES
 ('P551','DV001'),('P551','DV002'),('P551','DV003');
 
 -- =============================================================
+-- 17. ĐẶT CỌC ĐÃ DUYỆT, CHƯA LẬP HỢP ĐỒNG
+-- (Sale đã thu cọc, quản lý đã xác nhận → sẵn sàng để "Lập hợp đồng")
+-- Đây là các đơn cọc APPROVED với MaHopDong = NULL nên trang
+-- "Quản lý đặt cọc" sẽ hiển thị nút "Lập hợp đồng".
+-- =============================================================
+INSERT INTO KHACH_HANG (MaKH, HoTen, GioiTinh, QuocTich, GiayToTuyThan, SDT, Email, NgaySinh, DiaChi) VALUES
+('KH200','Nguyễn Thành Đạt','Nam','Việt Nam','038111000200','0931000200','dat.nt@gmail.com','2000-05-12','100 Lê Lợi, Q1'),
+('KH201','Trần Khánh Vy',   'Nữ', 'Việt Nam','038111000201','0931000201','vy.tk@gmail.com', '2001-09-08','200 Hai Bà Trưng, Q3'),
+('KH202','Phạm Gia Bảo',    'Nam','Việt Nam','038111000202','0931000202','bao.pg@gmail.com','1999-03-20','300 CMT8, Q10'),
+('KH203','Lê Thảo My',      'Nữ', 'Việt Nam','038111000203','0931000203','my.lt@gmail.com', '2002-01-15','400 Nguyễn Trãi, Q5'),
+('KH204','Võ Minh Quân',    'Nam','Việt Nam','038111000204','0931000204','quan.vm@gmail.com','2000-07-30','500 Cách Mạng Tháng 8, Q3');
+
+-- Phòng/giường riêng cho các đơn cọc này (giữ chỗ RESERVED do đã duyệt cọc)
+INSERT INTO PHONG (MaPhong, MaChiNhanh, GiaThue, KhuVuc, Tang, SucChua, TinhTrang, GhiChu) VALUES
+('P601','CN001',3000000,'A',6,2,'RESERVED','Đã cọc, chờ lập HĐ'),
+('P602','CN001',3500000,'B',6,4,'RESERVED','Đã cọc, chờ lập HĐ'),
+('P603','CN002',2800000,'A',6,2,'AVAILABLE','Còn 1 giường trống'),
+('P604','CN002',3200000,'B',6,4,'AVAILABLE','Còn giường trống');
+
+INSERT INTO GIUONG (MaGiuong, MaPhong, GiaGiuong, TinhTrang) VALUES
+('G601A','P601',1500000,'RESERVED'),('G601B','P601',1500000,'RESERVED'),
+('G602A','P602',875000,'RESERVED'), ('G602B','P602',875000,'RESERVED'),('G602C','P602',875000,'RESERVED'),('G602D','P602',875000,'RESERVED'),
+('G603A','P603',1400000,'RESERVED'),('G603B','P603',1400000,'AVAILABLE'),
+('G604A','P604',800000,'RESERVED'), ('G604B','P604',800000,'AVAILABLE'), ('G604C','P604',800000,'AVAILABLE'),('G604D','P604',800000,'AVAILABLE');
+
+-- DAT_COC: APPROVED + MaHopDong NULL.  Cọc = tiền thuê 2 tháng × số giường.
+-- COC061/062: thuê nguyên phòng | COC063/064/065: thuê giường lẻ
+INSERT INTO DAT_COC (MaCoc, MaHopDong, MaKH, MaPhong, MaGiuong, NguoiPheDuyet, NgayDatCoc, SoTienCoc, PhuongThucThanhToan, TinhTrang, ThoiGianHetHan, ThoiGianPheDuyet, GhiChu) VALUES
+('COC061',NULL,'KH200','P601',NULL,   'NV002', NOW() - INTERVAL '3 days', 6000000, 'BANK_TRANSFER','APPROVED', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days','Thuê nguyên phòng P601 (2 giường) — chờ lập HĐ'),
+('COC062',NULL,'KH201','P602',NULL,   'NV002', NOW() - INTERVAL '3 days', 7000000, 'CASH',         'APPROVED', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days','Thuê nguyên phòng P602 (4 giường) — chờ lập HĐ'),
+('COC063',NULL,'KH202','P603','G603A','NV005', NOW() - INTERVAL '3 days', 2800000, 'BANK_TRANSFER','APPROVED', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days','Thuê giường G603A — chờ lập HĐ'),
+('COC064',NULL,'KH203','P604','G604A','NV005', NOW() - INTERVAL '3 days', 1600000, 'CASH',         'APPROVED', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days','Thuê giường G604A — chờ lập HĐ'),
+('COC065',NULL,'KH204','P604','G604B','NV002', NOW() - INTERVAL '1 day',  1600000, 'BANK_TRANSFER','APPROVED', NOW(),                      NOW(),                     'Thuê giường G604B — chờ lập HĐ');
+
+-- Thanh toán cọc tương ứng (TinhTrang = SUCCESS để khớp với logic app)
+INSERT INTO THANH_TOAN (MaThanhToan, MaHopDong, MaCoc, SoTien, PhuongThuc, NgayThanhToan, LoaiThanhToan, TinhTrang, GhiChu, MaSoChungTu) VALUES
+('TTA01',NULL,'COC061',6000000,'BANK_TRANSFER',NOW() - INTERVAL '2 days','DEPOSIT','SUCCESS','Thu cọc COC061','CTA20250001'),
+('TTA02',NULL,'COC062',7000000,'CASH',         NOW() - INTERVAL '2 days','DEPOSIT','SUCCESS','Thu cọc COC062','CTA20250002'),
+('TTA03',NULL,'COC063',2800000,'BANK_TRANSFER',NOW() - INTERVAL '2 days','DEPOSIT','SUCCESS','Thu cọc COC063','CTA20250003'),
+('TTA04',NULL,'COC064',1600000,'CASH',         NOW() - INTERVAL '2 days','DEPOSIT','SUCCESS','Thu cọc COC064','CTA20250004'),
+('TTA05',NULL,'COC065',1600000,'BANK_TRANSFER',NOW(),                     'DEPOSIT','SUCCESS','Thu cọc COC065','CTA20250005');
+
+-- G604B chuyển sang RESERVED do COC065 đã duyệt
+UPDATE GIUONG SET TinhTrang = 'RESERVED' WHERE MaGiuong = 'G604B';
+
+-- =============================================================
+-- 18. CHUẨN HÓA TÊN KHÁCH HÀNG
+-- Tên sinh tự động khó nghe + cứng nhắc (nữ luôn "Thị", nam luôn "Văn").
+-- Thay bằng tên Việt Nam tự nhiên, chữ đệm đa dạng, gán đúng theo giới tính.
+-- Bỏ qua KH001-005 (khách gốc) và khách quốc tịch nước ngoài (KH051-056).
+-- =============================================================
+DO $$
+DECLARE
+  male TEXT[] := ARRAY[
+    'Nguyễn Minh Quân','Trần Gia Bảo','Lê Hoàng Long','Phạm Anh Khoa','Hoàng Đức Duy',
+    'Phan Quốc Hưng','Vũ Tuấn Kiệt','Đặng Hải Đăng','Bùi Nhật Nam','Đỗ Thành Đạt',
+    'Hồ Đình Phúc','Ngô Bá Khang','Dương Công Minh','Đinh Hữu Thắng','Mai Xuân Trường',
+    'Trịnh Việt Hoàng','Lương Thái Sơn','Cao Mạnh Cường','Tô Chí Dũng','Hà Trọng Nghĩa',
+    'Lý Phú Quý','Vương Tấn Tài','Nguyễn Khánh Hòa','Trần Duy Khánh','Lê Bảo Lâm',
+    'Phạm Hoàng Phong','Hoàng Gia Huy','Phan Minh Triết','Vũ Đức Anh','Đặng Quang Vinh',
+    'Bùi Nhật Tân','Đỗ Trung Kiên','Hồ Anh Tú','Ngô Quốc Bảo','Dương Hữu Lộc',
+    'Đinh Thành Trung','Mai Hoàng Sơn','Trịnh Đăng Khoa','Nguyễn Tiến Dũng','Trần Hồng Phúc',
+    'Phạm Quốc Việt','Hoàng Minh Hiếu','Vũ Bá Đạt','Đặng Hoàng Nam','Bùi Gia Khải',
+    'Đỗ Nhật Minh','Phan Tuấn Anh','Lê Khắc Huy','Nguyễn Hoàng Việt','Trần Thanh Tùng'
+  ];
+  female TEXT[] := ARRAY[
+    'Nguyễn Ngọc Hân','Trần Thùy Dương','Lê Phương Anh','Phạm Khánh Linh','Hoàng Mai Anh',
+    'Phan Thu Trang','Vũ Diệu Linh','Đặng Hà My','Bùi Bảo Ngọc','Đỗ Quỳnh Như',
+    'Hồ Gia Hân','Ngô Yến Nhi','Dương Hồng Ngọc','Đinh Tường Vy','Mai Thảo Vy',
+    'Trịnh Cát Tường','Lương Nhã Phương','Cao Hải Yến','Tô Kim Ngân','Hà Bích Phương',
+    'Lý Mỹ Duyên','Vương Thanh Trúc','Nguyễn Hoài An','Trần Khánh Vân','Lê Ngọc Mai',
+    'Phạm Thùy Linh','Hoàng Phương Thảo','Phan Diễm Quỳnh','Vũ Hương Giang','Đặng Bảo Trâm',
+    'Bùi Thu Hà','Đỗ Quỳnh Anh','Hồ Lan Anh','Ngô Tuyết Nhi','Dương Mỹ Linh',
+    'Đinh Hồng Nhung','Mai Ngọc Lan','Trịnh Thảo Nguyên','Nguyễn Hà Phương','Trần Bích Ngọc',
+    'Phạm Yến Vy','Hoàng Minh Thư','Vũ Kiều Trang','Đặng Hoài Thương','Bùi Gia Linh',
+    'Đỗ Nhật Lệ','Phan Tú Anh','Lê Thanh Tâm','Nguyễn Cẩm Tú','Trần Mỹ Hạnh'
+  ];
+  r RECORD;
+  mi INT := 1;
+  fi INT := 1;
+BEGIN
+  FOR r IN SELECT MaKH, GioiTinh FROM KHACH_HANG
+           WHERE QuocTich = 'Việt Nam' AND MaKH > 'KH005' ORDER BY MaKH LOOP
+    IF r.GioiTinh = 'Nam' THEN
+      UPDATE KHACH_HANG SET HoTen = male[((mi - 1) % array_length(male, 1)) + 1] WHERE MaKH = r.MaKH;
+      mi := mi + 1;
+    ELSE
+      UPDATE KHACH_HANG SET HoTen = female[((fi - 1) % array_length(female, 1)) + 1] WHERE MaKH = r.MaKH;
+      fi := fi + 1;
+    END IF;
+  END LOOP;
+END $$;
+
+-- Đồng bộ lại tên các nhóm đặt theo tên đại diện (nếu có)
+UPDATE NHOM n SET TenNhom = 'Nhóm ' || k.HoTen
+FROM KHACH_HANG k
+WHERE n.MaDaiDien = k.MaKH AND n.TenNhom LIKE 'Nhóm %';
+
+-- =============================================================
+-- 19. GẮN NHÓM CHO MỌI HỢP ĐỒNG CHƯA CÓ NHÓM
+-- Tránh cột "Khách" bị rỗng ở danh sách hợp đồng / thu kỳ đầu / trả phòng.
+-- Đại diện nhóm = khách thuê trong hợp đồng (chi tiết thuê hoặc đơn cọc).
+-- =============================================================
+DO $$
+DECLARE
+  r RECORD;
+  rep VARCHAR(20);
+  gid VARCHAR(20);
+  i INT := 100;
+BEGIN
+  FOR r IN SELECT MaHopDong FROM HOP_DONG_THUE_NHA WHERE MaNhom IS NULL ORDER BY MaHopDong LOOP
+    rep := NULL;
+    SELECT MaKH INTO rep FROM CHI_TIET_THUE WHERE MaHopDong = r.MaHopDong AND MaKH IS NOT NULL LIMIT 1;
+    IF rep IS NULL THEN
+      SELECT MaKH INTO rep FROM DAT_COC WHERE MaHopDong = r.MaHopDong AND MaKH IS NOT NULL LIMIT 1;
+    END IF;
+    IF rep IS NULL THEN
+      SELECT MaKH INTO rep FROM KHACH_HANG ORDER BY MaKH LIMIT 1;
+    END IF;
+
+    gid := 'NHOA' || i;
+    INSERT INTO NHOM (MaNhom, TenNhom, MaDaiDien, MaHopDong, TrangThai)
+      VALUES (gid, 'Nhóm ' || (SELECT HoTen FROM KHACH_HANG WHERE MaKH = rep), rep, r.MaHopDong, 'ACTIVE');
+    INSERT INTO THANHVIEN_NHOM (MaNhom, MaKH, TrangThai)
+      VALUES (gid, rep, 'APPROVED') ON CONFLICT DO NOTHING;
+    UPDATE HOP_DONG_THUE_NHA SET MaNhom = gid WHERE MaHopDong = r.MaHopDong;
+    i := i + 1;
+  END LOOP;
+END $$;
+
+-- =============================================================
 -- Done – seed-augmented.sql executed successfully
 -- =============================================================

@@ -5,9 +5,9 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 router.get('/assets/default', authenticate, c.getDefaultAssets);
 router.get('/contract/:maHopDong', authenticate, c.getHandoverByContract);
-router.post('/contract/:maHopDong', authenticate, requireRole('MANAGER', 'SALE', 'ADMIN'), c.createHandover);
+router.post('/contract/:maHopDong', authenticate, requireRole('MANAGER', 'ADMIN'), c.createHandover);
 router.put('/:maBanGiao/confirm', authenticate, requireRole('MANAGER', 'ADMIN'), c.confirmHandover);
-router.put('/:maBanGiao/assets/:maTaiSan', authenticate, c.updateAssetCheck);
-router.post('/:maBanGiao/assets', authenticate, c.addAsset);
+router.put('/:maBanGiao/assets/:maTaiSan', authenticate, requireRole('MANAGER', 'ADMIN'), c.updateAssetCheck);
+router.post('/:maBanGiao/assets', authenticate, requireRole('MANAGER', 'ADMIN'), c.addAsset);
 
 module.exports = router;

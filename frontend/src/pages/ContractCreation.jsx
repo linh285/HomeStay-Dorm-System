@@ -53,6 +53,7 @@ const ContractCreation = () => {
   const [loadingData, setLoadingData] = useState(true);
   const [khachHang, setKhachHang] = useState(null);
   const [phong, setPhong] = useState(null);
+  const [giuong, setGiuong] = useState(null);
   const [giaThue, setGiaThue] = useState(0);
   const [soTienCoc, setSoTienCoc] = useState(0);
   const [members, setMembers] = useState([]);
@@ -79,8 +80,8 @@ const ContractCreation = () => {
   // Fetch dữ liệu từ deposit
   useEffect(() => {
     if (!maCoc) {
-      toast.error('Không tìm thấy thông tin đặt cọc. Vui lòng quay lại.');
-      navigate('/booking');
+      toast.error('Hãy chọn một đơn cọc đã duyệt rồi bấm "Lập hợp đồng".');
+      navigate('/deposits');
       return;
     }
 
@@ -89,7 +90,8 @@ const ContractCreation = () => {
         const deposit = res.data;
         setKhachHang(deposit.khachHang);
         setPhong(deposit.phong);
-        setGiaThue(deposit.phong?.GiaThue || 0);
+        setGiuong(deposit.giuong || null);
+        setGiaThue(deposit.giuong?.GiaGiuong || deposit.phong?.GiaThue || 0);
         setSoTienCoc(deposit.SoTienCoc || 0);
         setMembers([]);
         const today = new Date().toISOString().split('T')[0];
@@ -133,6 +135,7 @@ const ContractCreation = () => {
   const failedCount = members.filter(m => m.trangThai === 'khong_dat').length;
   const allFailed = members.length > 0 && failedCount === members.length;
   const someFailedNotAll = failedCount > 0 && !allFailed;
+  const roomBedLabel = giuong ? `${phong?.MaPhong || ''} / ${giuong.MaGiuong}` : (phong?.MaPhong || '');
 
   const isFormValid = agreed && form.ngayBatDau && form.ngayKetThuc && form.soNguoiThue && form.kyThanhToan;
 
@@ -186,13 +189,18 @@ const ContractCreation = () => {
     setLoading(true);
     try {
       const res = await contractService.createContract({
+        maCoc,
         maPhong: phong?.MaPhong,
         maNhom: maNhom || null,
         ngayBatDau: form.ngayBatDau,
         ngayKetThuc: form.ngayKetThuc,
         giaThue: giaThue,
         noiQuy: DIEU_KHOAN_TEXT,
-        chiTietThue: [],
+        chiTietThue: giuong ? [{
+          maGiuong: giuong.MaGiuong,
+          maKH: khachHang?.MaKH,
+          giaThueThucTe: giaThue,
+        }] : [],
       });
       setCreatedContractId(res?.data?.MaHopDong || '');
       // Chỉ mở modal nếu chưa mở (tránh StrictMode gọi hai lần)
@@ -356,7 +364,7 @@ const ContractCreation = () => {
             <Input label="Ngày bắt đầu" type="date" required value={form.ngayBatDau} onChange={(e) => setForm(f => ({ ...f, ngayBatDau: e.target.value }))} icon={<FiCalendar size={14} />} />
             <Input label="Khách thuê" value={khachHang?.HoTen || ''} readOnly onChange={() => {}} icon={<FiUser size={14} />} />
             <Input label="Ngày kết thúc" type="date" required value={form.ngayKetThuc} onChange={(e) => setForm(f => ({ ...f, ngayKetThuc: e.target.value }))} icon={<FiCalendar size={14} />} />
-            <Input label="Phòng / Giường" value={phong?.MaPhong || ''} readOnly onChange={() => {}} icon={<FiHome size={14} />} />
+            <Input label="Phòng / Giường" value={roomBedLabel} readOnly onChange={() => {}} icon={<FiHome size={14} />} />
             <Input label="Giá thuê (VNĐ/tháng)" value={formatCurrency(giaThue)} readOnly onChange={() => {}} />
             <Input label="Số người thuê" type="number" required value={form.soNguoiThue} onChange={(e) => setForm(f => ({ ...f, soNguoiThue: e.target.value }))} placeholder="Nhập số người" />
             <Input label="Kỳ thanh toán" type="select" required value={form.kyThanhToan} onChange={(e) => setForm(f => ({ ...f, kyThanhToan: e.target.value }))} options={KY_THANH_TOAN_OPTIONS} />

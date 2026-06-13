@@ -18,6 +18,7 @@ import FinancialSettlement from './pages/FinancialSettlement';
 import InvoiceGenerator from './pages/InvoiceGenerator';
 import PolicyManagement from './pages/PolicyManagement';
 import CreateDepositFromSchedule from './pages/CreateDepositFromSchedule';
+import FirstPaymentApproval from './pages/FirstPaymentApproval';
 
 export default function App() {
   return (
@@ -39,29 +40,45 @@ export default function App() {
           <Route element={<PrivateRoute />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/checkout" element={<CheckoutRequest />} />
-            <Route path="/checkout/inspect" element={<CheckoutInspection />} />
-            <Route path="/settlement" element={<FinancialSettlement />} />
           </Route>
 
-          {/* Routes for SALE, MANAGER, ADMIN */}
-          <Route element={<PrivateRoute roles={['SALE', 'MANAGER', 'ADMIN']} />}>
-            <Route path="/booking" element={<BookingWorkspace />} />
+          {/* Routes for SALE, ADMIN — sale lập hợp đồng (spec 3.1.3) */}
+          <Route element={<PrivateRoute roles={['SALE', 'ADMIN']} />}>
             <Route path="/contracts" element={<ContractCreation />} />
+            <Route path="/booking" element={<BookingWorkspace />} />
+            <Route path="/create-deposit" element={<CreateDepositFromSchedule />} />
+          </Route>
+
+          {/* Routes for MANAGER, ADMIN */}
+          <Route element={<PrivateRoute roles={['SALE', 'MANAGER', 'ACCOUNTANT', 'ADMIN']} />}>
+            <Route path="/checkout" element={<CheckoutRequest />} />
+          </Route>
+
+          {/* Routes for MANAGER, ADMIN */}
+          <Route element={<PrivateRoute roles={['MANAGER', 'ADMIN']} />}>
             <Route path="/handover" element={<RoomHandover />} />
           </Route>
 
+          {/* Checkout inspection: MANAGER starts it, ACCOUNTANT confirms settlement */}
+          <Route element={<PrivateRoute roles={['MANAGER', 'ACCOUNTANT', 'ADMIN']} />}>
+            <Route path="/checkout/inspect" element={<CheckoutInspection />} />
+          </Route>
+
           {/* Routes for MANAGER, ADMIN, ACCOUNTANT */}
-          <Route element={<PrivateRoute roles={['MANAGER', 'ADMIN', 'ACCOUNTANT']} />}>
+          <Route element={<PrivateRoute roles={['MANAGER', 'ADMIN']} />}>
             <Route path="/rooms" element={<RoomInventory />} />
             <Route path="/policies" element={<PolicyManagement />} />
-            <Route path="/deposits" element={<DepositPayment />} />
           </Route>
 
           {/* Routes for ACCOUNTANT, ADMIN */}
+          <Route element={<PrivateRoute roles={['SALE', 'MANAGER', 'ACCOUNTANT', 'ADMIN']} />}>
+            <Route path="/deposits" element={<DepositPayment />} />
+          </Route>
+
           <Route element={<PrivateRoute roles={['ACCOUNTANT', 'ADMIN']} />}>
-            <Route path="/create-deposit" element={<CreateDepositFromSchedule />} />
+            <Route path="/first-payments" element={<FirstPaymentApproval />} />
             <Route path="/invoices/new" element={<InvoiceGenerator />} />
+            <Route path="/settlement" element={<FinancialSettlement />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

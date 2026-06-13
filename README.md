@@ -1,8 +1,8 @@
-# 🏠 HomeStay Dorm Management System
+# HomeStay Dorm Management System
 
-Hệ thống quản lý ký túc xá thông minh HomeStay Dorm – kiến trúc 3 tầng (Presentation – Business – Data).
+Hệ thống quản lý ký túc xá tư nhân – kiến trúc 3 tầng (Presentation – Business – Data).
 
-## 📋 Công nghệ sử dụng
+## Công nghệ sử dụng
 
 | Tầng | Công nghệ |
 |------|-----------|
@@ -11,60 +11,64 @@ Hệ thống quản lý ký túc xá thông minh HomeStay Dorm – kiến trúc 
 | **Database** | PostgreSQL 15 |
 | **DevOps** | Docker Compose |
 
-## 🗂️ Cấu trúc thư mục
+## Cấu trúc thư mục
 
 ```
-HomeStay Dorm System/
-├── backend/ # Node.js + Express API
-│ ├── src/
-│ │ ├── config/ # Cấu hình DB
-│ │ ├── controllers/ # Xử lý request/response
-│ │ ├── services/ # Logic nghiệp vụ
-│ │ ├── models/ # Sequelize models (21 bảng)
-│ │ ├── routes/ # API routes
-│ │ ├── middleware/ # Auth, error handling
-│ │ ├── utils/ # Helpers
-│ │ └── cron/ # Cron job tự động hủy cọc
-│ ├── .env.example # Mẫu file biến môi trường
-│ └── server.js # Entry point
-├── frontend/ # React app
-│ ├── src/
-│ │ ├── components/ # Sidebar, Topbar, Modal, Drawer...
-│ │ ├── pages/ # 12 màn hình chính
-│ │ ├── services/ # Gọi API qua Axios
-│ │ ├── contexts/ # Context (Auth, Notification)
-│ │ ├── hooks/ # Custom hooks
-│ │ └── utils/ # Format, validation
-│ └── package.json
+HomeStay-Dorm-System/
+├── backend/
+│   └── src/
+│       ├── config/        # Cấu hình DB (Sequelize)
+│       ├── controllers/   # Xử lý request/response
+│       ├── services/      # Logic nghiệp vụ
+│       ├── models/        # Sequelize models
+│       ├── routes/        # API routes
+│       ├── middleware/    # Auth (JWT), error handler
+│       ├── utils/         # Helpers
+│       └── cron/          # Cron job hủy cọc quá hạn
+├── frontend/
+│   └── src/
+│       ├── components/    # Sidebar, Topbar, Button, Badge…
+│       ├── pages/         # 12+ màn hình chính
+│       ├── services/      # Axios wrappers
+│       ├── contexts/      # AuthContext
+│       ├── hooks/         # useAuth
+│       └── utils/         # formatters, validators
 ├── database/
-│ └── init.sql # Schema + seed data
-├── docker-compose.yml # PostgreSQL container
+│   ├── init.sql                # Schema + seed dữ liệu nghiệp vụ
+│   └── seed-augmented.sql      # Dữ liệu demo mở rộng (50 phòng, 204 giường)
+├── docker-compose.yml
 └── README.md
-
+```
 
 ---
-```
-## 🚀 Hướng dẫn cài đặt
+
+## Hướng dẫn cài đặt
 
 ### Yêu cầu hệ thống
+
+- **Node.js** ≥ 18.x
+- **Docker** & **Docker Compose** (Docker Desktop cho Windows/Mac)
+- **npm** (đi kèm Node.js)
+
+### Bước 1 – Clone repository
+
 ```bash
-- **Node.js** ≥ 18.x (`node -v`)
-- **Docker** & **Docker Compose** (cài Docker Desktop nếu dùng Windows/Mac)
-- **npm** hoặc **yarn** (đi kèm Node.js)
+git clone <link-repository>
+cd HomeStay-Dorm-System
 ```
-### Bước 1: Clone repository
+
+### Bước 2 – Tạo file `.env` cho Backend
 
 ```bash
-git clone <link-repository-của-nhóm>
-cd "HomeStay Dorm System"
-
-### Bước 2: Tạo file .env cho Backend
 cd backend
-copy .env.example .env          # Windows
+copy .env.example .env    # Windows
 # hoặc
-cp .env.example .env            # Linux / Mac
+cp .env.example .env      # Linux / Mac
+```
 
-Nội dung file .env mặc định (không cần sửa nếu dùng Docker theo hướng dẫn):
+Nội dung mặc định (không cần sửa nếu dùng Docker theo hướng dẫn):
+
+```
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=homestay_dorm
@@ -74,157 +78,276 @@ JWT_SECRET=homestay_dorm_super_secret_jwt_key_2025
 PORT=5000
 FRONTEND_URL=http://localhost:5173
 ```
-### Bước 3: Khởi động Database bằng Docker
-1. Quay lại thư mục gốc:
+
+### Bước 3 – Khởi động Database (Docker)
+
 ```bash
 cd ..
 docker-compose up -d
-
-3. Kiểm tra:
-docker-compose ps
-# hoặc
-docker ps --filter "name=homestay_db"
-
-Database sẽ tự động chạy file `database/init.sql` để tạo bảng và seed data.
+docker-compose ps          # kiểm tra container đang chạy
 ```
-### Bước 4: Cài đặt và chạy Backend
+
+Database tự động chạy theo thứ tự khi khởi tạo lần đầu:
+1. `database/init.sql` — tạo bảng + dữ liệu nghiệp vụ cơ bản
+2. `database/seed-augmented.sql` — bổ sung dữ liệu demo (thêm chi nhánh, phòng, giường)
+
+### Bước 4 – Chạy Backend
 
 ```bash
 cd backend
-
-# Cài đặt dependencies
 npm install
-
-# Chạy development server
 npm run dev
 ```
 
-Backend sẽ chạy tại: **http://localhost:5000**
-Thử: http://localhost:5000/health → thấy { status: "OK" }.
+Backend chạy tại **http://localhost:5000**.  
+Kiểm tra: `GET http://localhost:5000/health` → `{ "status": "OK" }`
 
-### Bước 5: Cài đặt và chạy Frontend
+### Bước 5 – Chạy Frontend
 
 ```bash
 cd frontend
-
-# Cài đặt dependencies
 npm install
-
-# Chạy development server
 npm run dev
 ```
 
-Frontend sẽ chạy tại: **http://localhost:5173**
+Frontend chạy tại **http://localhost:5173**.
 
 ---
 
-## 🔐 Tài khoản mặc định
+## Tài khoản mặc định
 
-| Role | Email | Mật khẩu |
-|------|-------|-----------|
+| Vai trò | Email | Mật khẩu |
+|---------|-------|-----------|
 | Admin | admin@homestay.com | 123456 |
-| Quản lý | manager@homestay.com | 123456 |
-| Sale | sale@homestay.com | 123456 |
-| Kế toán | accountant@homestay.com | 123456 |
+| Quản lý (Manager) | manager@homestay.com | 123456 |
+| Kinh doanh (Sale) | sale@homestay.com | 123456 |
+| Kế toán (Accountant) | accountant@homestay.com | 123456 |
 
 ---
 
+## Lưu ý khi chạy
 
-## ⚠️ Lưu ý khi chạy lần đầu
-- Lần đầu, database mất ~10‑15 giây để khởi tạo. Đợi log database system is ready to accept connections.
-- Nếu backend báo lỗi kết nối DB, kiểm tra Docker (docker ps). Restart container: docker-compose restart.
-- Khi tắt máy, cần chạy lại docker-compose up -d trước khi start backend.
-- Reset toàn bộ dữ liệu (xoá sạch DB):
-docker-compose down -v
-docker-compose up -d
+- Lần đầu chạy, database mất ~10–15 giây khởi tạo. Đợi log `database system is ready to accept connections`.
+- Nếu backend báo lỗi kết nối DB, kiểm tra `docker ps`. Khởi động lại: `docker-compose restart`.
+- Khi tắt máy, cần `docker-compose up -d` trước khi chạy backend.
+- Reset toàn bộ dữ liệu (xóa sạch DB và chạy lại cả hai file SQL):
+  ```bash
+  docker-compose down -v
+  docker-compose up -d
+  ```
+  > Lệnh này xóa volume cũ, tạo lại từ đầu và tự động chạy `01-init.sql` rồi `02-seed-augmented.sql`.
 
-## 🔄 Quy trình nghiệp vụ chính (tóm tắt)
+---
 
-1. **Đăng ký & đặt cọc**  
-   Đăng ký thuê → Chọn phòng → Đặt lịch xem → Tạo yêu cầu cọc (24h) → Xác nhận cọc → Phòng `RESERVED`
+## Quy trình nghiệp vụ chính
 
-2. **Ký hợp đồng & thanh toán kỳ đầu**  
-   Rà soát khách → Lập hợp đồng (`PENDING_FIRST_PAYMENT`) → Kế toán thu tiền kỳ đầu → Hợp đồng `ACTIVE`
+### 1. Đăng ký & đặt cọc
 
-3. **Bàn giao & sử dụng**  
-   Bàn giao phòng + tài sản → Phòng `OCCUPIED` → [Sử dụng dịch vụ]
+| Bước | Người thực hiện | Mô tả |
+|------|-----------------|-------|
+| Đặt lịch xem phòng | SALE | Tạo lịch xem cho khách |
+| Tạo yêu cầu đặt cọc | SALE | Từ lịch đã xem → tạo đơn cọc, trạng thái `PENDING_APPROVAL` |
+| Tính cọc &amp; gửi yêu cầu thanh toán | ACCOUNTANT | Kế toán tính tiền cọc, gửi yêu cầu, trạng thái → `PENDING_PAYMENT` (24h timer) |
+| Đối chiếu &amp; xác nhận đã nhận cọc | MANAGER | Quản lý đối chiếu chứng từ, xác nhận, trạng thái → `APPROVED`, phòng → `RESERVED` |
+| Từ chối / Hủy | MANAGER / SALE | Từ chối hoặc hủy yêu cầu cọc |
 
-4. **Trả phòng & quyết toán**  
-   Yêu cầu trả phòng → Kiểm tra, khấu trừ → Quyết toán hoàn cọc / thu thêm → Lập hóa đơn → Phòng `AVAILABLE`
+### 2. Ký hợp đồng & thanh toán kỳ đầu
+
+| Bước | Người thực hiện | Mô tả |
+|------|-----------------|-------|
+| Rà soát hồ sơ thành viên | SALE | Rà soát điều kiện lưu trú của khách/nhóm (spec 3.1.2) |
+| Lập hợp đồng | SALE | Tạo hợp đồng từ cọc đã `APPROVED`, HĐ → `PENDING_FIRST_PAYMENT` |
+| Thu tiền kỳ đầu | ACCOUNTANT | Xác nhận thanh toán tháng đầu, HĐ → `ACTIVE` |
+
+### 3. Bàn giao phòng
+
+| Bước | Người thực hiện | Mô tả |
+|------|-----------------|-------|
+| Tạo biên bản bàn giao | MANAGER | Liệt kê tài sản, bàn giao chìa khóa |
+| Xác nhận bàn giao | MANAGER | Đánh dấu `COMPLETED`, phòng → `OCCUPIED` |
+
+### 4. Trả phòng & quyết toán
+
+| Bước | Người thực hiện | Mô tả |
+|------|-----------------|-------|
+| Tạo yêu cầu trả phòng | SALE | Ghi ngày dự kiến và lý do, trạng thái → `PENDING` |
+| Bắt đầu kiểm tra | MANAGER | Trạng thái → `INSPECTING` |
+| Thêm khoản khấu trừ | MANAGER | Ghi điện, nước, hư hỏng… |
+| Hoàn tất kiểm tra | MANAGER | Chốt tỷ lệ hoàn cọc, trạng thái giữ `INSPECTING` |
+| Xác nhận quyết toán | ACCOUNTANT | Hoàn trả hoặc thu thêm, trạng thái → `COMPLETED` |
+| Lập hóa đơn | ACCOUNTANT | Xuất hóa đơn cuối kỳ |
+
+---
 
 ## Quy tắc tính tiền cọc & hoàn cọc
-Loại	                Công thức
-Tiền cọc	            (Giá thuê/tháng × 2) × Số giường thuê
-Hoàn cọc	            Xem bảng dưới
-Trường hợp	            Tỷ lệ hoàn
-Chưa ký hợp đồng	    80%
-Đã ký HĐ, ở < 6 tháng	50%
-Đã ký HĐ, ở ≥ 6 tháng	70%
-HĐ đã hết hạn tự nhiên	100%
+
+### Tiền cọc
+
+```
+SoTienCoc = (GiaThue / thang) × 2 × SoGiuong
+```
+
+- Thuê cả phòng: `SoGiuong = SucChua` (sức chứa tối đa của phòng)
+- Thuê theo giường: `SoGiuong = 1`
+
+### Tỷ lệ hoàn cọc
+
+| Trường hợp | Tỷ lệ |
+|------------|-------|
+| Chưa ký hợp đồng (hủy cọc) | 80% |
+| Đã ký HĐ, ở < 6 tháng | 50% |
+| Đã ký HĐ, ở ≥ 6 tháng | 70% |
+| HĐ đã hết hạn tự nhiên | 100% |
+
+---
 
 ## Cron job tự động hủy cọc quá hạn
-Lịch chạy: mỗi phút 0
-Chức năng: Cọc PENDING_PAYMENT quá 24h → EXPIRED, phòng trở về AVAILABLE
-File cấu hình: backend/src/cron/expireDeposits.js
 
-## Design System (tham khảo)
-Token	Giá trị
-Màu chính	#0A58CA
-Thành công	#198754
-Cảnh báo	#FAAD14
-Nguy hiểm	#DC3545
-Chữ chính	#212529
-Nền     	#F8F9FA
-Font	    Inter
-Bo góc card	 8px
-Bo góc input 4px
+- **Lịch chạy:** Mỗi giờ
+- **Chức năng:** Cọc `PENDING_PAYMENT` quá 24h → `EXPIRED`, giường/phòng trở về `AVAILABLE`
+- **File:** `backend/src/cron/expireDeposits.js`
 
-## 📡 API Endpoints
+---
+
+## Phân quyền theo màn hình
+
+| Màn hình | SALE | MANAGER | ACCOUNTANT | ADMIN |
+|----------|------|---------|------------|-------|
+| Dashboard | ✓ | ✓ | ✓ | ✓ |
+| Quản lý phòng | | ✓ | | ✓ |
+| Đăng ký & đặt lịch | ✓ | | | ✓ |
+| Tạo đơn cọc từ lịch | ✓ | | | ✓ |
+| Quản lý đặt cọc | ✓ | ✓ | ✓ | ✓ |
+| Lập hợp đồng | ✓ | | | ✓ |
+| Thanh toán kỳ đầu | | | ✓ | ✓ |
+| Bàn giao phòng | | ✓ | | ✓ |
+| Trả phòng (danh sách) | ✓ | ✓ | ✓ | ✓ |
+| Kiểm tra / Quyết toán | | ✓ | ✓ | ✓ |
+| Quy định | | ✓ | | ✓ |
+
+> Bên trong trang Kiểm tra: MANAGER quản lý kiểm tra, ACCOUNTANT xác nhận quyết toán.
+> Trong trang Quản lý đặt cọc: SALE tạo cọc, ACCOUNTANT gửi yêu cầu thanh toán, MANAGER đối chiếu &amp; xác nhận đã nhận cọc (spec 3.1.2).
+
+---
+
+## API Endpoints
 
 ### Authentication
+
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
 | POST | `/api/auth/login` | Đăng nhập |
 | POST | `/api/auth/change-password` | Đổi mật khẩu |
-| GET | `/api/auth/profile` | Lấy thông tin user |
+| GET | `/api/auth/profile` | Thông tin user hiện tại |
 
-### Phòng (Rooms)
+### Phòng & Giường
+
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
 | GET | `/api/rooms` | Danh sách phòng |
-| GET | `/api/rooms/available` | Phòng còn trống |
+| GET | `/api/rooms/available` | Phòng/giường còn trống |
 | GET | `/api/rooms/:id` | Chi tiết phòng |
 | POST | `/api/rooms` | Thêm phòng mới |
 | PUT | `/api/rooms/:id` | Cập nhật phòng |
 | DELETE | `/api/rooms/:id` | Xóa phòng |
 
-### Đặt cọc (Deposits)
+### Đặt cọc
+
+| Method | Endpoint | Vai trò | Mô tả |
+|--------|----------|---------|-------|
+| GET | `/api/deposits` | ALL | Danh sách đặt cọc |
+| GET | `/api/deposits/calculate` | ALL | Tính tiền cọc |
+| GET | `/api/deposits/:id` | ALL | Chi tiết đặt cọc |
+| POST | `/api/deposits` | SALE, ADMIN | Tạo yêu cầu đặt cọc |
+| PUT | `/api/deposits/:id/send-payment` | ACCOUNTANT, ADMIN | Kế toán tính cọc + gửi yêu cầu TT (24h timer) |
+| PUT | `/api/deposits/:id/confirm` | MANAGER, ADMIN | Quản lý đối chiếu chứng từ + xác nhận đã nhận cọc |
+| PUT | `/api/deposits/:id/reject` | MANAGER, ADMIN | Từ chối yêu cầu cọc |
+| PUT | `/api/deposits/:id/cancel` | SALE, MANAGER, ADMIN | Hủy đặt cọc |
+
+### Lịch xem phòng
+
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
-| GET | `/api/deposits` | Danh sách đặt cọc |
-| POST | `/api/deposits` | Tạo yêu cầu đặt cọc |
-| PUT | `/api/deposits/:id/confirm` | Xác nhận thanh toán cọc |
+| GET | `/api/lich-xem` | Danh sách lịch xem |
+| POST | `/api/lich-xem` | Tạo lịch xem |
+| PUT | `/api/lich-xem/:id` | Cập nhật lịch xem |
 
-### Hợp đồng (Contracts)
+### Hợp đồng
+
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
 | GET | `/api/contracts` | Danh sách hợp đồng |
-| POST | `/api/contracts` | Tạo hợp đồng |
-| PUT | `/api/contracts/:id/activate` | Kích hoạt hợp đồng |
+| GET | `/api/contracts/:id` | Chi tiết hợp đồng |
+| POST | `/api/contracts` | Tạo hợp đồng mới |
+| PUT | `/api/contracts/:id/activate` | Kích hoạt (sau thanh toán kỳ đầu) |
 
-### Trả phòng (Checkout)
+### Thanh toán kỳ đầu
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/first-payments` | HĐ chờ thanh toán kỳ đầu |
+| POST | `/api/first-payments/:id/confirm` | Xác nhận thu tiền kỳ đầu |
+
+### Bàn giao
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/handover` | Danh sách bàn giao |
+| GET | `/api/handover/:id` | Chi tiết bàn giao |
+| POST | `/api/handover` | Tạo biên bản bàn giao |
+| PUT | `/api/handover/:id/complete` | Xác nhận hoàn tất bàn giao |
+
+### Trả phòng
+
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
 | GET | `/api/checkout` | Danh sách yêu cầu trả phòng |
+| GET | `/api/checkout/:id` | Chi tiết yêu cầu |
 | POST | `/api/checkout` | Tạo yêu cầu trả phòng |
-| PUT | `/api/checkout/:id/complete` | Hoàn tất kiểm tra |
+| PUT | `/api/checkout/:id/start-inspection` | Bắt đầu kiểm tra (MANAGER) |
+| PUT | `/api/checkout/:id/add-damage` | Thêm khoản khấu trừ (MANAGER) |
+| PUT | `/api/checkout/:id/complete-inspection` | Hoàn tất kiểm tra (MANAGER) |
 
-### Hóa đơn (Invoices)
+### Quyết toán
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/settlement/:maTra` | Lấy dữ liệu quyết toán |
+| POST | `/api/settlement/:maTra/confirm` | Xác nhận quyết toán (ACCOUNTANT) |
+
+### Hóa đơn
+
 | Method | Endpoint | Mô tả |
 |--------|----------|-------|
 | GET | `/api/invoices` | Danh sách hóa đơn |
 | POST | `/api/invoices` | Tạo hóa đơn |
 
+### Quy định
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/policies` | Danh sách quy định |
+| POST | `/api/policies` | Thêm quy định |
+| PUT | `/api/policies/:id` | Cập nhật quy định |
+| DELETE | `/api/policies/:id` | Xóa quy định |
+
 ---
 
-*Được phát triển bởi linh le HomeStay Dorm · HCMUS · 2025-2026*
+## Dữ liệu seed có sẵn
+
+| Mã | Loại | Trạng thái | Mô tả |
+|----|------|------------|-------|
+| HD001 | Hợp đồng | ACTIVE | P102, KH001+KH002, có bàn giao, có checkout PENDING |
+| HD002 | Hợp đồng | PENDING_FIRST_PAYMENT | P103, KH003, chờ kế toán thu tiền kỳ đầu |
+| HD003 | Hợp đồng | ACTIVE | P402/G402A, KH006, có bàn giao, có checkout **INSPECTING** |
+| COC001 | Đặt cọc | APPROVED | Linked HD001 |
+| COC002 | Đặt cọc | PENDING_PAYMENT | G201A/P201, KH004, đang chờ khách thanh toán |
+| COC003 | Đặt cọc | APPROVED | Linked HD003 |
+| COC004 | Đặt cọc | PENDING_APPROVAL | G401A/P401, KH007, chờ kế toán gửi yêu cầu TT |
+| COC005 | Đặt cọc | PENDING_PAYMENT | G101A/P101, KH008, đang chờ khách thanh toán |
+| TR-0001 | Trả phòng | INSPECTING | HD003 — 50% hoàn cọc, có khấu trừ điện/nước — **kế toán xác nhận quyết toán** |
+| TR-0002 | Trả phòng | PENDING | HD001 — quản lý bắt đầu kiểm tra |
+
+---
+
+*Phát triển bởi nhóm HomeStay Dorm · HCMUS · 2025–2026*

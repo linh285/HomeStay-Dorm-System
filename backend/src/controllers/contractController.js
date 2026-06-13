@@ -24,7 +24,7 @@ const getContractById = async (req, res, next) => {
 
 const activateContract = async (req, res, next) => {
   try {
-    const result = await contractService.activateContract(req.params.maHopDong);
+    const result = await contractService.activateContract(req.params.maHopDong, req.body);
     return successResponse(res, result, 'Hợp đồng đã được kích hoạt');
   } catch (e) { next(e); }
 };

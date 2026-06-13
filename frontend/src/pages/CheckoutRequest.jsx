@@ -7,11 +7,13 @@ import Topbar from '../components/layout/Topbar';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { getCheckoutRequests, createCheckout } from '../services/checkoutService';
-import { getContracts } from '../services/contractService';
+import { findContractBySearch } from '../services/contractService';
 import { formatDate, formatDateTime, checkoutStatusConfig } from '../utils/formatters';
+import { useAuth } from '../hooks/useAuth';
 
 export default function CheckoutRequest() {
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
   const [checkouts, setCheckouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -19,6 +21,9 @@ export default function CheckoutRequest() {
   const [searching, setSearching] = useState(false);
   const [form, setForm] = useState({ ngayTraDuKien: '', lyDo: '', ghiChu: '' });
   const [submitting, setSubmitting] = useState(false);
+  const canCreateCheckout = hasRole('SALE', 'ADMIN');
+  const canInspectCheckout = hasRole('MANAGER', 'ADMIN');
+  const canSettleCheckout = hasRole('ACCOUNTANT', 'ADMIN');
 
   const fetchCheckouts = async () => {
     setLoading(true);
@@ -43,11 +48,19 @@ export default function CheckoutRequest() {
     if (!searchKeyword.trim()) return;
     setSearching(true);
     try {
-      const res = await getContracts({ search: searchKeyword });
-      const list = res?.data?.contracts || [];
-      const active = list.find(c => c.TinhTrang === 'ACTIVE');
-      if (active) { setFoundContract(active); toast.success('Tìm thấy hợp đồng!'); }
-      else { setFoundContract(null); toast.error('Không tìm thấy hợp đồng đang hoạt động'); }
+      // Tìm đúng hợp đồng theo mã HD hoặc SĐT (endpoint /contracts/search)
+      const res = await findContractBySearch(searchKeyword.trim());
+      const contract = res?.data || null;
+      if (contract && contract.TinhTrang === 'ACTIVE') {
+        setFoundContract(contract);
+        toast.success('Tìm thấy hợp đồng!');
+      } else if (contract) {
+        setFoundContract(null);
+        toast.error('Hợp đồng chưa ở trạng thái đang hiệu lực (ACTIVE)');
+      } else {
+        setFoundContract(null);
+        toast.error('Không tìm thấy hợp đồng phù hợp');
+      }
     } catch { toast.error('Lỗi tìm kiếm'); }
     finally { setSearching(false); }
   };
@@ -80,9 +93,10 @@ export default function CheckoutRequest() {
         <Topbar title="Trả phòng" />
         <main className="main-content">
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Yêu cầu trả phòng</h1>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: canCreateCheckout ? '1fr 1fr' : '1fr', gap: 20 }}>
 
             {/* LEFT: Form */}
+            {canCreateCheckout && (
             <div className="card">
               <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, borderBottom: '1px solid #E5E7EB', paddingBottom: 12 }}>
                 Thông tin yêu cầu trả phòng
@@ -142,6 +156,7 @@ export default function CheckoutRequest() {
                 </div>
               </form>
             </div>
+            )}
 
             {/* RIGHT: List */}
             <div className="card">
@@ -173,7 +188,8 @@ export default function CheckoutRequest() {
                           {checkoutStatusConfig[co.TrangThai]?.label || co.TrangThai}
                         </Badge>
                       </div>
-                      {co.TrangThai !== 'COMPLETED' && (
+                      {((canInspectCheckout && co.TrangThai !== 'COMPLETED') ||
+                        (canSettleCheckout && co.TrangThai === 'INSPECTING')) && (
                         <button className="btn btn-outline" style={{ marginTop: 8, width: '100%', fontSize: 12 }}
                           onClick={() => navigate('/checkout/inspect', { state: { maTra: co.MaTra } })}>
                           Xử lý <FiArrowRight size={12} />

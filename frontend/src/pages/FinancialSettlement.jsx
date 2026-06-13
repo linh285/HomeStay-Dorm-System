@@ -33,7 +33,7 @@ export default function FinancialSettlement() {
 
   useEffect(() => {
     if (!maTra) { navigate('/checkout'); return; }
-    getSettlement(maTra).then(r => setData(r))
+    getSettlement(maTra).then(r => setData(r?.data || r))
       .catch(() => toast.error('Không thể tải dữ liệu quyết toán'))
       .finally(() => setLoading(false));
   }, [maTra]);

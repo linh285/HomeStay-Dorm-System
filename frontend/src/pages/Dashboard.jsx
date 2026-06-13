@@ -80,10 +80,13 @@ export default function Dashboard() {
               <p style={{ color: '#6C757D', margin: '4px 0 0' }}>Đây là tổng quan hệ thống hôm nay</p>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              {['SALE', 'MANAGER', 'ADMIN'].includes(user?.chucVu) && (
+              {['SALE', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-primary" onClick={() => navigate('/booking')}>
                   <FiCalendar size={16} style={{ marginRight: 6 }} /> + Tạo đăng ký mới
                 </button>
+              )}
+              {['ACCOUNTANT', 'ADMIN'].includes(user?.chucVu) && (
+                <button className="btn btn-outline" onClick={() => navigate('/first-payments')}>Thanh toán kỳ đầu</button>
               )}
               {['MANAGER', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/rooms')}>
@@ -221,23 +224,23 @@ export default function Dashboard() {
           <div className="card" style={{ marginTop: 16 }}>
             <h3 className="card-title" style={{ marginBottom: 16 }}>⚡ Thao tác nhanh</h3>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {['SALE', 'MANAGER', 'ADMIN'].includes(user?.chucVu) && (
+              {['SALE', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/booking')}>📋 Đăng ký thuê mới</button>
               )}
-              {['ACCOUNTANT', 'MANAGER', 'ADMIN'].includes(user?.chucVu) && (
+              {['ACCOUNTANT', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/deposits')}>💰 Quản lý đặt cọc</button>
               )}
               {['MANAGER', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/handover')}>🔑 Bàn giao phòng</button>
               )}
-              {['ACCOUNTANT', 'MANAGER', 'ADMIN'].includes(user?.chucVu) && (
+              {['ACCOUNTANT', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/invoices/new')}>🧾 Lập hóa đơn</button>
               )}
               {['MANAGER', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/policies')}>📜 Quy định</button>
               )}
               {/* Thêm nút mới */}
-              {['SALE', 'MANAGER', 'ADMIN'].includes(user?.chucVu) && (
+              {['SALE', 'ADMIN'].includes(user?.chucVu) && (
                 <button className="btn btn-outline" onClick={() => navigate('/create-deposit')}>
                   💰 Tạo đơn cọc từ lịch xem
                 </button>

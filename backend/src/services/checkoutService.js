@@ -1,41 +1,40 @@
 const { Op } = require('sequelize');
-const { TraPhong, ChiTietKhauTru, HopDongThueNha, Phong, Giuong, NhanVien, Nhom, KhachHang, DatCoc, sequelize } = require('../models');
+const { TraPhong, ChiTietKhauTru, HopDongThueNha, Phong, NhanVien, Nhom, KhachHang, DatCoc } = require('../models');
 const { diffInMonths } = require('../utils/dateHelpers');
 
-/**
- * Tính tỷ lệ hoàn cọc theo quy định nghiệp vụ
- */
 const calculateRefundRate = (hopDong, ngayTra) => {
-  if (!hopDong) return 0.8; // Chưa ký hợp đồng → 80%
+  if (!hopDong) return 0.8;
+
   const ngayBatDau = new Date(hopDong.NgayBatDau);
   const ngayKetThuc = new Date(hopDong.NgayKetThuc);
   const ngayTraDate = new Date(ngayTra || new Date());
   const monthsStayed = diffInMonths(ngayBatDau, ngayTraDate);
 
-  // HĐ đã hết hạn tự nhiên
   if (ngayTraDate >= ngayKetThuc) return 1.0;
-  // HĐ chưa hết hạn, ở < 6 tháng
   if (monthsStayed < 6) return 0.5;
-  // HĐ chưa hết hạn, ở >= 6 tháng
   return 0.7;
 };
 
-/**
- * Tạo yêu cầu trả phòng
- */
 const createCheckoutRequest = async (data) => {
-  const { maHopDong, ngayTraDuKien, lyDo, ghiChu, maNVXuLy } = data;
+  const { maHopDong, ngayTraDuKien, lyDo, maNVXuLy } = data;
 
   const hopDong = await HopDongThueNha.findByPk(maHopDong);
-  if (!hopDong) throw { statusCode: 404, message: 'Hợp đồng không tồn tại' };
-  if (!['ACTIVE'].includes(hopDong.TinhTrang)) {
-    throw { statusCode: 400, message: 'Hợp đồng không ở trạng thái hoạt động' };
+  if (!hopDong) throw { statusCode: 404, message: 'Hop dong khong ton tai' };
+  if (hopDong.TinhTrang !== 'ACTIVE') {
+    throw { statusCode: 400, message: 'Hop dong khong o trang thai hoat dong' };
+  }
+
+  const existing = await TraPhong.findOne({
+    where: { MaHopDong: maHopDong, TrangThai: { [Op.in]: ['PENDING', 'INSPECTING'] } },
+  });
+  if (existing) {
+    throw { statusCode: 400, message: 'Hop dong dang co yeu cau tra phong chua hoan tat' };
   }
 
   const count = await TraPhong.count();
   const maTra = `TR-${String(count + 1).padStart(4, '0')}`;
 
-  const traPhong = await TraPhong.create({
+  return await TraPhong.create({
     MaTra: maTra,
     MaHopDong: maHopDong,
     NgayYeuCau: new Date(),
@@ -44,15 +43,10 @@ const createCheckoutRequest = async (data) => {
     TrangThai: 'PENDING',
     MaNVXuLy: maNVXuLy || null,
   });
-
-  return traPhong;
 };
 
-/**
- * Lấy tất cả yêu cầu trả phòng
- */
 const getAllCheckoutRequests = async (filters = {}) => {
-  const { trangThai, search, page = 1, limit = 20 } = filters;
+  const { trangThai, page = 1, limit = 20 } = filters;
   const where = {};
   if (trangThai && trangThai !== 'ALL') where.TrangThai = trangThai;
 
@@ -76,9 +70,6 @@ const getAllCheckoutRequests = async (filters = {}) => {
   return { total: count, checkouts: rows, page, limit };
 };
 
-/**
- * Lấy yêu cầu trả phòng theo ID
- */
 const getCheckoutById = async (maTra) => {
   const traPhong = await TraPhong.findByPk(maTra, {
     include: [
@@ -94,35 +85,35 @@ const getCheckoutById = async (maTra) => {
       { model: NhanVien, as: 'nhanVienXuLy', attributes: ['TenNV', 'ChucVu'] },
     ],
   });
-  if (!traPhong) throw { statusCode: 404, message: 'Yêu cầu trả phòng không tồn tại' };
+  if (!traPhong) throw { statusCode: 404, message: 'Yeu cau tra phong khong ton tai' };
   return traPhong;
 };
 
-/**
- * Bắt đầu kiểm tra phòng
- */
 const startInspection = async (maTra, maNVXuLy) => {
   const traPhong = await TraPhong.findByPk(maTra);
-  if (!traPhong) throw { statusCode: 404, message: 'Không tìm thấy yêu cầu trả phòng' };
+  if (!traPhong) throw { statusCode: 404, message: 'Khong tim thay yeu cau tra phong' };
+  if (traPhong.TrangThai !== 'PENDING') {
+    throw { statusCode: 400, message: 'Chi co the bat dau kiem tra tu trang thai PENDING' };
+  }
   await traPhong.update({ TrangThai: 'INSPECTING', MaNVXuLy: maNVXuLy });
   return traPhong;
 };
 
-/**
- * Hoàn tất kiểm tra phòng - tính tỷ lệ hoàn cọc tự động
- */
 const completeInspection = async (maTra, data) => {
   const { tinhTrangPhong, ngayTraThucTe, ghiChu } = data;
   const traPhong = await TraPhong.findByPk(maTra, {
     include: [{ model: HopDongThueNha, as: 'hopDong', include: [{ model: DatCoc, as: 'datCoc' }] }]
   });
-  if (!traPhong) throw { statusCode: 404, message: 'Không tìm thấy yêu cầu trả phòng' };
+  if (!traPhong) throw { statusCode: 404, message: 'Khong tim thay yeu cau tra phong' };
+  if (traPhong.TrangThai !== 'INSPECTING') {
+    throw { statusCode: 400, message: 'Can bat dau kiem tra truoc khi hoan tat kiem tra' };
+  }
 
   const hopDong = traPhong.hopDong;
   const ngayTra = ngayTraThucTe || new Date();
   const tyLeHoanCoc = calculateRefundRate(hopDong, ngayTra);
   const soTienCoc = hopDong?.datCoc?.SoTienCoc || 0;
-  const soTienHoan = Math.round(soTienCoc * tyLeHoanCoc);
+  const soTienHoan = Math.round(Number(soTienCoc) * tyLeHoanCoc);
 
   await traPhong.update({
     TinhTrangPhong: tinhTrangPhong,
@@ -135,29 +126,43 @@ const completeInspection = async (maTra, data) => {
   return traPhong;
 };
 
-/**
- * Ghi nhận hư hại / khoản khấu trừ
- */
 const addDamageRecord = async (maTra, data) => {
   const { loaiPhi, soTien, ghiChu } = data;
+  const traPhong = await TraPhong.findByPk(maTra);
+  if (!traPhong) throw { statusCode: 404, message: 'Khong tim thay yeu cau tra phong' };
+  if (traPhong.TrangThai !== 'INSPECTING') {
+    throw { statusCode: 400, message: 'Can bat dau kiem tra truoc khi ghi nhan khau tru' };
+  }
+
   const khauTru = await ChiTietKhauTru.create({
     MaTra: maTra,
     LoaiPhi: loaiPhi,
     SoTien: soTien,
     GhiChu: ghiChu,
   });
-  // Recalculate SoTienHoan
-  const traPhong = await TraPhong.findByPk(maTra, {
+
+  const refreshed = await TraPhong.findByPk(maTra, {
     include: [
       { model: ChiTietKhauTru, as: 'chiTietKhauTrus' },
       { model: HopDongThueNha, as: 'hopDong', include: [{ model: DatCoc, as: 'datCoc' }] }
     ]
   });
-  const tongKhauTru = traPhong.chiTietKhauTrus.reduce((sum, k) => sum + Number(k.SoTien), 0);
-  const soTienCoc = traPhong.hopDong?.datCoc?.SoTienCoc || 0;
-  const soTienHoan = Math.max(0, Math.round(soTienCoc * (traPhong.TyLeHoanCoc / 100)) - tongKhauTru);
-  await traPhong.update({ SoTienHoan: soTienHoan });
+  if (refreshed.TyLeHoanCoc === null || refreshed.TyLeHoanCoc === undefined) {
+    return khauTru;
+  }
+  const tongKhauTru = refreshed.chiTietKhauTrus.reduce((sum, k) => sum + Number(k.SoTien), 0);
+  const soTienCoc = Number(refreshed.hopDong?.datCoc?.SoTienCoc || 0);
+  const soTienHoan = Math.round(soTienCoc * (Number(refreshed.TyLeHoanCoc) / 100)) - tongKhauTru;
+  await refreshed.update({ SoTienHoan: soTienHoan });
   return khauTru;
 };
 
-module.exports = { createCheckoutRequest, getAllCheckoutRequests, getCheckoutById, startInspection, completeInspection, addDamageRecord, calculateRefundRate };
+module.exports = {
+  createCheckoutRequest,
+  getAllCheckoutRequests,
+  getCheckoutById,
+  startInspection,
+  completeInspection,
+  addDamageRecord,
+  calculateRefundRate,
+};

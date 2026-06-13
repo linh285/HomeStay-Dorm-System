@@ -112,9 +112,8 @@ export default function CreateDepositFromSchedule() {
           return;
         }
       }
-      const soGiuong = selectedSchedule.phong?.SucChua || 1;
       const giaThue = selectedSchedule.phong?.GiaThue || 0;
-      const tienCoc = giaThue * 2 * soGiuong;
+      const tienCoc = giaThue * 2; // thuê nguyên phòng: cọc = 2 tháng tiền phòng
       await depositService.createDeposit({
         maPhong: selectedSchedule.phong?.MaPhong,
         MaKH: selectedSchedule.khachHang?.MaKH,
@@ -142,7 +141,7 @@ export default function CreateDepositFromSchedule() {
     { key: 'TrangThai', title: 'Trạng thái', render: (val) => <Badge variant={val === 'COMPLETED' ? 'available' : 'warning'}>{val}</Badge> },
   ];
 
-  const tienCoc = selectedSchedule ? (selectedSchedule.phong?.GiaThue || 0) * 2 * (selectedSchedule.phong?.SucChua || 1) : 0;
+  const tienCoc = selectedSchedule ? (selectedSchedule.phong?.GiaThue || 0) * 2 : 0;
 
   return (
     <div className="app-layout">
